@@ -1,17 +1,35 @@
-FROM freepascal/fpc:3.2.2-focal-full AS build
-WORKDIR /app
-COPY src/server.pas .
-RUN fpc -O2 -Xs server.pas
+# stolen from my 2nd stage project
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends libcap2-bin ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+FROM golang:1.24.7-alpine3.21 AS builder
 
-WORKDIR /app
-COPY --from=build /app/server /app/server
+# Setup base software for building an app.
+RUN apk add --no-cache ca-certificates git gcc g++ libc-dev binutils
 
-RUN setcap 'cap_net_bind_service=+ep' /app/server
+WORKDIR /opt
 
-USER 65534:65534
-EXPOSE 80
-CMD ["/app/server"]
+# Download dependencies.
+COPY src/go.mod src/go.sum ./
+RUN go mod download && go mod verify
+
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+
+# Copy application source.
+COPY ./src .
+
+# Build the application.
+RUN go build -o bin/application ./cmd/api
+
+# Prepare executor image.
+FROM alpine:3.21 AS runner
+
+RUN apk add --no-cache ca-certificates libc6-compat openssh bash curl
+
+WORKDIR /opt
+
+COPY --from=builder /opt/bin/application ./
+COPY --from=builder /opt/entrypoint.sh ./entrypoint.sh
+
+COPY --from=builder /go/bin/goose /usr/local/bin/goose
+COPY --from=builder /opt/db/migrations ./migrations
+
+ENTRYPOINT ["sh", "./entrypoint.sh"]

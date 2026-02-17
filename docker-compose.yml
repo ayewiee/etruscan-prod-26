@@ -1,6 +1,40 @@
 services:
   api:
-    platform: linux/amd64
+    container_name: etruscan-api
     build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: etruscan
+      JWT_SECRET: guesswhosbackbackagain
     ports:
-      - "80:80"
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:8080/api/v1/health" ]
+      interval: 30s
+      timeout: 2s
+      retries: 20
+      start_period: 10s
+  postgres:
+    image: postgres:16-alpine
+    container_name: etruscan-postgres
+    command: [ "postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ]
+    environment:
+      POSTGRES_DB: etruscan
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d etruscan -h 127.0.0.1 -p 5432" ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+volumes:
+  postgres_data:
