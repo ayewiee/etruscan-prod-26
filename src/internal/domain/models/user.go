@@ -15,15 +15,15 @@ const (
 	UserRoleViewer       UserRole = "VIEWER"
 )
 
-func (r UserRole) CanEditFlags() bool {
+func (r UserRole) CanManageFlags() bool {
 	return r == UserRoleExperimenter || r == UserRoleAdmin
 }
 
-func (r UserRole) CanEditExperiments() bool {
-	return r == UserRoleExperimenter || r == UserRoleAdmin
+func (r UserRole) CanManageExperiments() bool {
+	return r == UserRoleExperimenter || r == UserRoleApprover || r == UserRoleAdmin
 }
 
-func (r UserRole) CanApproveInGeneral() bool {
+func (r UserRole) CanApprove() bool {
 	return r == UserRoleApprover || r == UserRoleAdmin
 }
 

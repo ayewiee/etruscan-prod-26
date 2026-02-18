@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"etruscan/internal/api/apierrors"
+	"etruscan/internal/domain"
 	"etruscan/internal/domain/models"
 	"etruscan/internal/repository"
 
@@ -19,8 +21,17 @@ func NewFlagUseCase(repo repository.FlagRepository) *FlagUseCase {
 }
 
 func (uc *FlagUseCase) Create(ctx context.Context, actor models.UserAuthData, flag *models.Flag) (*models.Flag, error) {
-	if !actor.Role.CanEditFlags() {
+	if !actor.Role.CanManageFlags() {
 		return nil, models.ErrForbidden
+	}
+
+	err := domain.ValidateValueMatchesType(flag.DefaultValue, flag.ValueType)
+	if err != nil {
+		var fe *models.FieldError
+		if errors.As(err, &fe) {
+			return nil, apierrors.DumbValidationError(fe.Field, fe.RejectedValue, fe.Issue, fe)
+		}
+		return nil, err
 	}
 
 	return uc.repo.Create(ctx, flag)
@@ -51,9 +62,19 @@ func (uc *FlagUseCase) List(ctx context.Context) ([]*models.Flag, error) {
 }
 
 func (uc *FlagUseCase) Update(ctx context.Context, actor models.UserAuthData, flag *models.Flag) (*models.Flag, error) {
-	if !actor.Role.CanEditFlags() {
+	if !actor.Role.CanManageFlags() {
 		return nil, models.ErrForbidden
 	}
+
+	err := domain.ValidateValueMatchesType(flag.DefaultValue, flag.ValueType)
+	if err != nil {
+		var fe *models.FieldError
+		if errors.As(err, &fe) {
+			return nil, apierrors.DumbValidationError(fe.Field, fe.RejectedValue, fe.Issue, fe)
+		}
+		return nil, err
+	}
+
 	updFlag, err := uc.repo.Update(ctx, flag)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -64,7 +85,7 @@ func (uc *FlagUseCase) Update(ctx context.Context, actor models.UserAuthData, fl
 }
 
 func (uc *FlagUseCase) Delete(ctx context.Context, actor models.UserAuthData, id uuid.UUID) error {
-	if !actor.Role.CanEditFlags() {
+	if !actor.Role.CanManageFlags() {
 		return models.ErrForbidden
 	}
 	return uc.repo.Delete(ctx, id)

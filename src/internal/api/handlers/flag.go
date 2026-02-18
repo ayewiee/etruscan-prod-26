@@ -20,7 +20,7 @@ func NewFlagHandler(usecase *usecases.FlagUseCase) *FlagHandler {
 	return &FlagHandler{usecase: usecase}
 }
 
-func modifyRequest(c echo.Context) (models.UserAuthData, *models.Flag, error) {
+func modifyFlagRequest(c echo.Context) (models.UserAuthData, *models.Flag, error) {
 	actor, err := api.ExtractUserAuthDataFromContext(c)
 	if err != nil {
 		return models.UserAuthData{}, nil, err
@@ -44,7 +44,7 @@ func modifyRequest(c echo.Context) (models.UserAuthData, *models.Flag, error) {
 }
 
 func (h *FlagHandler) Create(c echo.Context) error {
-	actor, domainFlag, err := modifyRequest(c)
+	actor, domainFlag, err := modifyFlagRequest(c)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (h *FlagHandler) Create(c echo.Context) error {
 }
 
 func (h *FlagHandler) Update(c echo.Context) error {
-	actor, domainFlag, err := modifyRequest(c)
+	actor, domainFlag, err := modifyFlagRequest(c)
 	if err != nil {
 		return err
 	}

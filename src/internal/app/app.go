@@ -43,12 +43,14 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	userRepo := repository.NewSQLCUserRepository(queries)
 	approverGroupRepo := repository.NewSQLCApproverGroupRepository(queries)
 	flagRepo := repository.NewSQLCFlagRepository(queries)
+	experimentRepo := repository.NewSQLCExperimentRepository(queries)
 
 	deps := Dependencies{
 		AuthUseCase:          usecases.NewAuthUseCase(userRepo, passwordHasher, jwtProvider),
 		UserUseCase:          usecases.NewUserUseCase(userRepo, passwordHasher),
 		ApproverGroupUseCase: usecases.NewApproverGroupUseCase(approverGroupRepo, userRepo),
 		FlagUseCase:          usecases.NewFlagUseCase(flagRepo),
+		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo),
 	}
 
 	app := &App{

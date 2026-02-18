@@ -1,6 +1,10 @@
 package database
 
 import (
+	dbgen "etruscan/internal/database/generated"
+	"etruscan/internal/domain/models"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -43,4 +47,32 @@ func FromPgText(v pgtype.Text) *string {
 		return &v.String
 	}
 	return nil
+}
+
+func FromPgTimestamptz(v pgtype.Timestamptz) *time.Time {
+	if v.Valid {
+		return &v.Time
+	}
+	return nil
+}
+
+func ToNullExperimentOutcome(v *models.ExperimentOutcome) dbgen.NullExperimentOutcome {
+	if v == nil {
+		return dbgen.NullExperimentOutcome{Valid: false}
+	}
+	return dbgen.NullExperimentOutcome{ExperimentOutcome: dbgen.ExperimentOutcome(*v), Valid: true}
+}
+func FromNullExperimentOutcome(v dbgen.NullExperimentOutcome) *models.ExperimentOutcome {
+	if v.Valid {
+		eo := models.ExperimentOutcome(v.ExperimentOutcome)
+		return &eo
+	}
+	return nil
+}
+
+func ToNullExperimentStatus(v *models.ExperimentStatus) dbgen.NullExperimentStatus {
+	if v == nil {
+		return dbgen.NullExperimentStatus{Valid: false}
+	}
+	return dbgen.NullExperimentStatus{ExperimentStatus: dbgen.ExperimentStatus(*v), Valid: true}
 }

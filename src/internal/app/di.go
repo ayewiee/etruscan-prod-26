@@ -7,4 +7,5 @@ type Dependencies struct {
 	UserUseCase          *usecases.UserUseCase
 	ApproverGroupUseCase *usecases.ApproverGroupUseCase
 	FlagUseCase          *usecases.FlagUseCase
+	ExperimentUseCase    *usecases.ExperimentUseCase
 }

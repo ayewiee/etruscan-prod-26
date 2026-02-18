@@ -54,6 +54,10 @@ type FieldError struct {
 	RejectedValue interface{}
 }
 
+func (f FieldError) Error() string {
+	return fmt.Sprintf("FieldError: [%s] %s", f.Field, f.Issue)
+}
+
 type ApiError struct {
 	Code        ErrorCode
 	Message     string

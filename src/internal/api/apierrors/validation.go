@@ -4,9 +4,57 @@ import (
 	"errors"
 	"etruscan/internal/domain/models"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
+
+// pretty much everything here was taken from my 2nd stage project
+
+func fieldErrorJSONPath(fe validator.FieldError, root any) string {
+	ns := fe.StructNamespace()
+
+	parts := strings.Split(ns, ".")
+	if len(parts) == 0 {
+		return fe.Field()
+	}
+
+	// remove root struct name
+	parts = parts[1:]
+
+	var path []string
+	t := reflect.TypeOf(root)
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	for _, p := range parts {
+		field, ok := t.FieldByName(p)
+		if !ok {
+			// fallback to lowercased name
+			path = append(path, strings.ToLower(p))
+			continue
+		}
+
+		// get field name outta json tag
+		jsonTag := field.Tag.Get("json")
+		name := strings.Split(jsonTag, ",")[0]
+		if name == "" || name == "-" {
+			name = strings.ToLower(p)
+		}
+
+		path = append(path, name)
+
+		// descend into nested struct
+		t = field.Type
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+	}
+
+	return strings.Join(path, ".")
+}
 
 func ValidationError(err error, req interface{}) *models.ApiError {
 	var verrs validator.ValidationErrors
@@ -24,7 +72,7 @@ func ValidationError(err error, req interface{}) *models.ApiError {
 	var fieldErrors []models.FieldError
 
 	for _, verr := range verrs {
-		field := verr.Field()
+		field := fieldErrorJSONPath(verr, req)
 		issue := validationErrorMessage(verr)
 		rejectedValue := verr.Value()
 
@@ -37,7 +85,7 @@ func ValidationError(err error, req interface{}) *models.ApiError {
 
 	return models.NewApiError(
 		models.ErrCodeValidationFailed,
-		"Некоторые поля не прошли валидацию",
+		"Some fields are invalid",
 		nil,
 		fieldErrors,
 		verrs,
@@ -57,7 +105,7 @@ func DumbValidationError(field string, value interface{}, msg string, cause erro
 func MultipleDumbValidationErrors(fieldErrs ...models.FieldError) *models.ApiError {
 	return models.NewApiError(
 		models.ErrCodeValidationFailed,
-		"Некоторые поля не прошли валидацию",
+		"Some fields are invalid",
 		nil,
 		fieldErrs,
 		nil,

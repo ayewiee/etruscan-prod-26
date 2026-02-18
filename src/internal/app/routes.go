@@ -54,4 +54,9 @@ func (app *App) RegisterRoutes() {
 	protected.GET("/flags/:id", flagHdl.GetByID)
 	protected.PUT("/flags/:id", flagHdl.Update)
 	protected.DELETE("/flags/:id", flagHdl.Delete)
+
+	expHdl := handlers.NewExperimentHandler(app.Deps.ExperimentUseCase)
+
+	protected.POST("/experiments", expHdl.Create)
+	protected.GET("/experiments/:id", expHdl.GetByID)
 }
