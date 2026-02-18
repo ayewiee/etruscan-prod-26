@@ -28,7 +28,7 @@ func NewUserUseCase(repo repository.UserRepository, hasher PasswordHasher) *User
 func (uc *UserUseCase) Create(
 	ctx context.Context,
 	actor models.UserAuthData,
-	user models.User,
+	user *models.User,
 	password string,
 ) (*models.User, error) {
 	if actor.Role != models.UserRoleAdmin {
@@ -46,14 +46,14 @@ func (uc *UserUseCase) Create(
 		return nil, err
 	}
 
-	return &usr, nil
+	return usr, nil
 }
 
 func (uc *UserUseCase) AdminUpdate(
 	ctx context.Context,
 	actor models.UserAuthData,
-	user models.User,
-	updUser models.User,
+	user *models.User,
+	updUser *models.User,
 	password *string,
 ) (*models.User, error) {
 	if actor.Role != models.UserRoleAdmin {
@@ -77,7 +77,7 @@ func (uc *UserUseCase) AdminUpdate(
 		return nil, err
 	}
 
-	return &usr, nil
+	return usr, nil
 }
 
 func (uc *UserUseCase) GetByID(ctx context.Context, actor models.UserAuthData, id uuid.UUID) (*models.User, error) {
@@ -91,14 +91,14 @@ func (uc *UserUseCase) GetByID(ctx context.Context, actor models.UserAuthData, i
 			return nil, models.NewErrNotFound("User not found", nil, err)
 		}
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (uc *UserUseCase) List(
 	ctx context.Context,
 	actor models.UserAuthData,
 	pgn pagination.Pagination,
-) ([]models.User, int, error) {
+) ([]*models.User, int, error) {
 	if actor.Role != models.UserRoleAdmin {
 		return nil, 0, models.ErrForbidden
 	}

@@ -43,5 +43,5 @@ func (uc *AuthUseCase) Login(ctx context.Context, email, password string) (Acces
 		return "", nil, err
 	}
 
-	return AccessToken(token), &user, nil
+	return AccessToken(token), user, nil
 }

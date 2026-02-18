@@ -25,7 +25,7 @@ type FlagResponse struct {
 	UpdatedAt    string          `json:"updatedAt"`
 }
 
-func FlagResponseFromDomain(flag models.Flag) FlagResponse {
+func FlagResponseFromDomain(flag *models.Flag) FlagResponse {
 	return FlagResponse{
 		ID:           flag.ID,
 		Key:          flag.Key,
@@ -37,7 +37,7 @@ func FlagResponseFromDomain(flag models.Flag) FlagResponse {
 	}
 }
 
-func FlagResponseListFromDomain(flags []models.Flag) []FlagResponse {
+func FlagResponseListFromDomain(flags []*models.Flag) []FlagResponse {
 	flagResponses := make([]FlagResponse, len(flags))
 	for i, flag := range flags {
 		flagResponses[i] = FlagResponseFromDomain(flag)

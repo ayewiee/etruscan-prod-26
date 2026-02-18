@@ -26,20 +26,20 @@ func NewApproverGroupUseCase(
 func (uc *ApproverGroupUseCase) Create(
 	ctx context.Context,
 	actor models.UserAuthData,
-	approverGroup models.ApproverGroup,
-) (models.ApproverGroup, error) {
+	approverGroup *models.ApproverGroup,
+) (*models.ApproverGroup, error) {
 	if actor.Role != models.UserRoleAdmin {
-		return models.ApproverGroup{}, models.ErrForbidden
+		return nil, models.ErrForbidden
 	}
 
 	return uc.repo.Create(ctx, approverGroup)
 }
 
-func (uc *ApproverGroupUseCase) GetByID(ctx context.Context, id uuid.UUID) (models.ApproverGroup, error) {
+func (uc *ApproverGroupUseCase) GetByID(ctx context.Context, id uuid.UUID) (*models.ApproverGroup, error) {
 	ag, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.ApproverGroup{}, models.NewErrNotFound("Approver group not found", nil, err)
+			return nil, models.NewErrNotFound("Approver group not found", nil, err)
 		}
 	}
 	return ag, nil
@@ -50,18 +50,18 @@ func (uc *ApproverGroupUseCase) AddMembers(
 	actor models.UserAuthData,
 	id uuid.UUID,
 	members []uuid.UUID,
-) (models.ApproverGroup, error) {
+) (*models.ApproverGroup, error) {
 	if actor.Role != models.UserRoleAdmin {
-		return models.ApproverGroup{}, models.ErrForbidden
+		return nil, models.ErrForbidden
 	}
 
 	if err := uc.checkUsersExistence(ctx, members); err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	err := uc.repo.AddMembers(ctx, id, members)
 	if err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	return uc.repo.GetByID(ctx, id)
@@ -72,18 +72,18 @@ func (uc *ApproverGroupUseCase) RemoveMembers(
 	actor models.UserAuthData,
 	id uuid.UUID,
 	members []uuid.UUID,
-) (models.ApproverGroup, error) {
+) (*models.ApproverGroup, error) {
 	if actor.Role != models.UserRoleAdmin {
-		return models.ApproverGroup{}, models.ErrForbidden
+		return nil, models.ErrForbidden
 	}
 
 	if err := uc.checkUsersExistence(ctx, members); err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	err := uc.repo.RemoveMembers(ctx, id, members)
 	if err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	return uc.repo.GetByID(ctx, id)

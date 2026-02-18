@@ -20,14 +20,14 @@ func NewUserHandler(usecase *usecases.UserUseCase) *UserHandler {
 	return &UserHandler{usecase}
 }
 
-func parseUser(c echo.Context) (models.User, *string, error) {
+func parseUser(c echo.Context) (*models.User, *string, error) {
 	var req dto.AdminCreateUpdateUserRequest
 
 	if err := c.Bind(&req); err != nil {
-		return models.User{}, nil, err
+		return nil, nil, err
 	}
 	if err := c.Validate(&req); err != nil {
-		return models.User{}, nil, apierrors.ValidationError(err, req)
+		return nil, nil, apierrors.ValidationError(err, req)
 	}
 
 	return req.ToDomain(), req.Password, nil
@@ -96,7 +96,7 @@ func (h *UserHandler) AdminUpdate(c echo.Context) error {
 		return err
 	}
 
-	updatedUser, err := h.usecase.AdminUpdate(c.Request().Context(), actor, *user, domainUser, password)
+	updatedUser, err := h.usecase.AdminUpdate(c.Request().Context(), actor, user, domainUser, password)
 	if err != nil {
 		return err
 	}

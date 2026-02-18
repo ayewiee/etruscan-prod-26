@@ -35,7 +35,7 @@ func (h *ApproverGroupHandler) Create(c echo.Context) error {
 		return apierrors.ValidationError(err, req)
 	}
 
-	ag, err := h.usecase.Create(c.Request().Context(), actor, models.ApproverGroup{
+	ag, err := h.usecase.Create(c.Request().Context(), actor, &models.ApproverGroup{
 		Name:        req.Name,
 		Description: req.Description,
 	})

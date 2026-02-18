@@ -10,12 +10,12 @@ import (
 )
 
 type ApproverGroupRepository interface {
-	Create(ctx context.Context, approverGroup models.ApproverGroup) (models.ApproverGroup, error)
-	GetByID(ctx context.Context, id uuid.UUID) (models.ApproverGroup, error)
-	Update(ctx context.Context, approverGroup models.ApproverGroup) (models.ApproverGroup, error)
+	Create(ctx context.Context, approverGroup *models.ApproverGroup) (*models.ApproverGroup, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*models.ApproverGroup, error)
+	Update(ctx context.Context, approverGroup *models.ApproverGroup) (*models.ApproverGroup, error)
 	AddMembers(ctx context.Context, id uuid.UUID, members []uuid.UUID) error
 	RemoveMembers(ctx context.Context, id uuid.UUID, members []uuid.UUID) error
-	List(ctx context.Context) ([]models.ApproverGroup, error)
+	List(ctx context.Context) ([]*models.ApproverGroup, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -27,13 +27,16 @@ func NewSQLCApproverGroupRepository(db *dbgen.Queries) *SQLCApproverGroupReposit
 	return &SQLCApproverGroupRepository{db: db}
 }
 
-func (r SQLCApproverGroupRepository) Create(ctx context.Context, approverGroup models.ApproverGroup) (models.ApproverGroup, error) {
+func (r SQLCApproverGroupRepository) Create(
+	ctx context.Context,
+	approverGroup *models.ApproverGroup,
+) (*models.ApproverGroup, error) {
 	row, err := r.db.CreateApproverGroup(ctx, dbgen.CreateApproverGroupParams{
 		Name:        approverGroup.Name,
 		Description: database.ToPgText(approverGroup.Description),
 	})
 	if err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	return approverGroupRowToDomain(row), nil
@@ -42,7 +45,7 @@ func (r SQLCApproverGroupRepository) Create(ctx context.Context, approverGroup m
 func (r SQLCApproverGroupRepository) GetMembers(ctx context.Context, id uuid.UUID) ([]models.User, error) {
 	rows, err := r.db.GetApproverGroupMembers(ctx, id)
 	if err != nil {
-		return []models.User{}, err
+		return nil, err
 	}
 	users := make([]models.User, len(rows))
 	for i, row := range rows {
@@ -57,15 +60,15 @@ func (r SQLCApproverGroupRepository) GetMembers(ctx context.Context, id uuid.UUI
 	return users, nil
 }
 
-func (r SQLCApproverGroupRepository) GetByID(ctx context.Context, id uuid.UUID) (models.ApproverGroup, error) {
+func (r SQLCApproverGroupRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.ApproverGroup, error) {
 	row, err := r.db.GetApproverGroup(ctx, id)
 	if err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	members, err := r.GetMembers(ctx, id)
 	if err != nil {
-		return models.ApproverGroup{}, err
+		return nil, err
 	}
 
 	ag := approverGroupRowToDomain(row)
@@ -74,7 +77,10 @@ func (r SQLCApproverGroupRepository) GetByID(ctx context.Context, id uuid.UUID) 
 	return ag, nil
 }
 
-func (r SQLCApproverGroupRepository) Update(ctx context.Context, approverGroup models.ApproverGroup) (models.ApproverGroup, error) {
+func (r SQLCApproverGroupRepository) Update(
+	ctx context.Context,
+	approverGroup *models.ApproverGroup,
+) (*models.ApproverGroup, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -93,7 +99,7 @@ func (r SQLCApproverGroupRepository) RemoveMembers(ctx context.Context, id uuid.
 	})
 }
 
-func (r SQLCApproverGroupRepository) List(ctx context.Context) ([]models.ApproverGroup, error) {
+func (r SQLCApproverGroupRepository) List(ctx context.Context) ([]*models.ApproverGroup, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -102,12 +108,12 @@ func (r SQLCApproverGroupRepository) Delete(ctx context.Context, id uuid.UUID) e
 	return r.db.DeleteApproverGroup(ctx, id)
 }
 
-func approverGroupRowToDomain(row dbgen.ApproverGroup) models.ApproverGroup {
-	return models.ApproverGroup{
+func approverGroupRowToDomain(row dbgen.ApproverGroup) *models.ApproverGroup {
+	return &models.ApproverGroup{
 		ID:          row.ID,
 		Name:        row.Name,
 		Description: database.FromPgText(row.Description),
-		Members:     []models.User{},
+		Members:     nil,
 		CreatedAt:   row.CreatedAt.Time,
 	}
 }

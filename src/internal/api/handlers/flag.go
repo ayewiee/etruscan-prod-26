@@ -20,22 +20,22 @@ func NewFlagHandler(usecase *usecases.FlagUseCase) *FlagHandler {
 	return &FlagHandler{usecase: usecase}
 }
 
-func modifyRequest(c echo.Context) (models.UserAuthData, models.Flag, error) {
+func modifyRequest(c echo.Context) (models.UserAuthData, *models.Flag, error) {
 	actor, err := api.ExtractUserAuthDataFromContext(c)
 	if err != nil {
-		return models.UserAuthData{}, models.Flag{}, err
+		return models.UserAuthData{}, nil, err
 	}
 
 	var req dto.CreateUpdateFlagRequest
 
 	if err := c.Bind(&req); err != nil {
-		return models.UserAuthData{}, models.Flag{}, err
+		return models.UserAuthData{}, nil, err
 	}
 	if err := c.Validate(&req); err != nil {
-		return models.UserAuthData{}, models.Flag{}, apierrors.ValidationError(err, req)
+		return models.UserAuthData{}, nil, apierrors.ValidationError(err, req)
 	}
 
-	return actor, models.Flag{
+	return actor, &models.Flag{
 		Key:          req.Key,
 		Description:  req.Description,
 		DefaultValue: req.DefaultValue,

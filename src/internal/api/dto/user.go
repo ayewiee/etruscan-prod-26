@@ -16,8 +16,8 @@ type AdminCreateUpdateUserRequest struct {
 	ApproverGroup *uuid.UUID `json:"approverGroup" validate:"omitempty,uuid"`
 }
 
-func (req *AdminCreateUpdateUserRequest) ToDomain() models.User {
-	return models.User{
+func (req *AdminCreateUpdateUserRequest) ToDomain() *models.User {
+	return &models.User{
 		ID:            uuid.UUID{},
 		Email:         req.Email,
 		Username:      req.Username,
@@ -72,10 +72,10 @@ func CompactUserDTOFromDomain(u *models.User) CompactUserDTO {
 	}
 }
 
-func PaginatedUserResponseDTOListFromDomainList(ul []models.User, total, page, size int) *PaginatedResponse {
+func PaginatedUserResponseDTOListFromDomainList(ul []*models.User, total, page, size int) *PaginatedResponse {
 	userDTOs := make([]UserResponseDTO, len(ul))
 	for i, u := range ul {
-		userDTOs[i] = UserResponseDTOFromDomain(&u)
+		userDTOs[i] = UserResponseDTOFromDomain(u)
 	}
 
 	return &PaginatedResponse{

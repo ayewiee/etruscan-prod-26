@@ -24,7 +24,7 @@ type ApproverGroupResponse struct {
 	CreatedAt   string           `json:"createdAt"`
 }
 
-func ApproverGroupResponseFromDomain(ag models.ApproverGroup) *ApproverGroupResponse {
+func ApproverGroupResponseFromDomain(ag *models.ApproverGroup) *ApproverGroupResponse {
 	memberDTOs := make([]CompactUserDTO, len(ag.Members))
 	for i, m := range ag.Members {
 		memberDTOs[i] = CompactUserDTOFromDomain(&m)
