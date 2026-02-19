@@ -24,12 +24,24 @@ type CreateUpdateExperimentRequest struct {
 	Variants           []*VariantRequest `json:"variants" validate:"required,min=1,dive"`
 }
 
+type ExperimentReviewRequest struct {
+	Comment string `json:"comment" validate:"required"`
+}
+
 type VariantResponse struct {
 	ID        uuid.UUID       `json:"id"`
 	Name      string          `json:"name"`
 	Value     json.RawMessage `json:"value"`
 	Weight    int             `json:"weight"`
 	IsControl bool            `json:"isControl"`
+}
+
+type ReviewResponse struct {
+	ID         uuid.UUID `json:"id"`
+	ApproverID uuid.UUID `json:"approverId"`
+	Decision   string    `json:"decision"`
+	Comment    *string   `json:"comment,omitempty"`
+	CreatedAt  string    `json:"createdAt"`
 }
 
 type ExperimentResponse struct {
@@ -39,6 +51,7 @@ type ExperimentResponse struct {
 	Description        *string            `json:"description"`
 	CreatedBy          uuid.UUID          `json:"createdBy"`
 	Status             string             `json:"status"`
+	Reviews            []*ReviewResponse  `json:"reviews"`
 	AudiencePercentage int                `json:"audiencePercentage"`
 	TargetingRule      *string            `json:"targetingRule"`
 	CreatedAt          string             `json:"createdAt"`
@@ -51,6 +64,11 @@ func ExperimentResponseFromDomain(e *models.Experiment) *ExperimentResponse {
 	for i, variant := range e.Variants {
 		variants[i] = variantResponseFromDomain(variant)
 	}
+	reviews := make([]*ReviewResponse, len(e.Reviews))
+	for i, review := range e.Reviews {
+		reviews[i] = reviewResponseFromDomain(review)
+	}
+
 	return &ExperimentResponse{
 		ID:                 e.ID,
 		FlagID:             e.FlagID,
@@ -63,6 +81,7 @@ func ExperimentResponseFromDomain(e *models.Experiment) *ExperimentResponse {
 		CreatedAt:          e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:          e.UpdatedAt.Format(time.RFC3339),
 		Variants:           variants,
+		Reviews:            reviews,
 	}
 }
 
@@ -73,5 +92,15 @@ func variantResponseFromDomain(v *models.Variant) *VariantResponse {
 		Value:     v.Value,
 		Weight:    v.Weight,
 		IsControl: v.IsControl,
+	}
+}
+
+func reviewResponseFromDomain(r *models.ExperimentReview) *ReviewResponse {
+	return &ReviewResponse{
+		ID:         r.ID,
+		ApproverID: r.ApproverID,
+		Decision:   string(r.Decision),
+		Comment:    r.Comment,
+		CreatedAt:  r.CreatedAt.Format(time.RFC3339),
 	}
 }

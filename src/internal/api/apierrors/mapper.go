@@ -28,6 +28,9 @@ func HTTPStatusFromErrorCode(code models.ErrorCode) int {
 	case models.ErrCodeInternal:
 		return http.StatusInternalServerError
 
+	case models.ErrCodeLocked:
+		return http.StatusLocked
+
 	default:
 		return http.StatusInternalServerError // fallback
 	}

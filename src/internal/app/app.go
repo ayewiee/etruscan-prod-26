@@ -50,7 +50,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 		UserUseCase:          usecases.NewUserUseCase(userRepo, passwordHasher),
 		ApproverGroupUseCase: usecases.NewApproverGroupUseCase(approverGroupRepo, userRepo),
 		FlagUseCase:          usecases.NewFlagUseCase(flagRepo),
-		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo),
+		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo, userRepo, cfg.DefaultMinApprovals),
 	}
 
 	app := &App{

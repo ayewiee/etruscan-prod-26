@@ -12,6 +12,7 @@ services:
       DB_PORT: 5432
       DB_NAME: etruscan
       JWT_SECRET: guesswhosbackbackagain
+      DEFAULT_MIN_APPROVALS: 2
     ports:
       - "8080:8080"
     healthcheck:

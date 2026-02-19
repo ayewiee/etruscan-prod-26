@@ -20,12 +20,19 @@ type ExperimentRepository interface {
 	Create(ctx context.Context, experiment *models.Experiment) (*models.Experiment, error)
 	Update(ctx context.Context, experiment *models.Experiment) (*models.Experiment, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Experiment, error)
-	UpdateStatus(ctx context.Context, id uuid.UUID, status models.ExperimentStatus) (*models.Experiment, error)
+	UpdateStatus(ctx context.Context, id uuid.UUID, status models.ExperimentStatus) error
 	List(ctx context.Context, filters ListFilters) ([]*models.Experiment, error)
 
 	CreateVariants(ctx context.Context, experimentID uuid.UUID, variants []*models.Variant) error
 	ListVariantsByExperimentID(ctx context.Context, experimentID uuid.UUID) ([]*models.Variant, error)
 	DeleteVariantsByExperimentID(ctx context.Context, experimentID uuid.UUID) error
+
+	CreateExperimentReview(ctx context.Context, review *models.ExperimentReview) error
+	ListExperimentReviews(ctx context.Context, id uuid.UUID) ([]*models.ExperimentReview, error)
+	CountApprovals(ctx context.Context, experimentID uuid.UUID) (int, error)
+	ClearExperimentReviews(ctx context.Context, experimentID uuid.UUID) error
+
+	LogExperimentStatusChange(ctx context.Context, expStatusChange *models.ExperimentStatusChange) error
 }
 
 type SQLCExperimentRepository struct {
@@ -81,16 +88,11 @@ func (r SQLCExperimentRepository) UpdateStatus(
 	ctx context.Context,
 	id uuid.UUID,
 	status models.ExperimentStatus,
-) (*models.Experiment, error) {
-	row, err := r.db.UpdateExperimentStatus(ctx, dbgen.UpdateExperimentStatusParams{
+) error {
+	return r.db.UpdateExperimentStatus(ctx, dbgen.UpdateExperimentStatusParams{
 		ID:     id,
 		Status: dbgen.ExperimentStatus(status),
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return experimentRowToDomain(row), nil
 }
 
 func (r SQLCExperimentRepository) List(ctx context.Context, filters ListFilters) ([]*models.Experiment, error) {
@@ -172,6 +174,67 @@ func experimentRowToDomain(experiment dbgen.Experiment) *models.Experiment {
 		UpdatedAt:          experiment.UpdatedAt.Time,
 		Variants:           nil,
 	}
+}
+
+func (r SQLCExperimentRepository) CreateExperimentReview(
+	ctx context.Context,
+	review *models.ExperimentReview,
+) error {
+	return r.db.CreateExperimentReview(ctx, dbgen.CreateExperimentReviewParams{
+		ExperimentID: review.ExperimentID,
+		ApproverID:   review.ApproverID,
+		Decision:     dbgen.ExperimentReviewDecision(review.Decision),
+		Comment:      database.ToPgText(review.Comment),
+	})
+}
+
+func (r SQLCExperimentRepository) ListExperimentReviews(
+	ctx context.Context,
+	id uuid.UUID,
+) ([]*models.ExperimentReview, error) {
+	rows, err := r.db.ListExperimentReviews(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	reviews := make([]*models.ExperimentReview, len(rows))
+	for i, row := range rows {
+		reviews[i] = &models.ExperimentReview{
+			ID:           row.ID,
+			ExperimentID: row.ExperimentID,
+			ApproverID:   row.ApproverID,
+			Decision:     models.ExperimentReviewDecision(row.Decision),
+			Comment:      database.FromPgText(row.Comment),
+			CreatedAt:    row.CreatedAt.Time,
+		}
+	}
+
+	return reviews, nil
+}
+
+func (r SQLCExperimentRepository) CountApprovals(ctx context.Context, experimentID uuid.UUID) (int, error) {
+	count, err := r.db.CountApprovals(ctx, experimentID)
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+func (r SQLCExperimentRepository) ClearExperimentReviews(ctx context.Context, experimentID uuid.UUID) error {
+	return r.db.ClearExperimentReviews(ctx, experimentID)
+}
+
+func (r SQLCExperimentRepository) LogExperimentStatusChange(
+	ctx context.Context,
+	expStatusChange *models.ExperimentStatusChange,
+) error {
+	return r.db.LogExperimentStatusChange(ctx, dbgen.LogExperimentStatusChangeParams{
+		ExperimentID: expStatusChange.ExperimentID,
+		ActorID:      database.ToPgUUID(expStatusChange.ActorID),
+		FromStatus:   database.ToNullExperimentStatus(expStatusChange.From),
+		ToStatus:     dbgen.ExperimentStatus(expStatusChange.To),
+		Comment:      database.ToPgText(expStatusChange.Comment),
+	})
 }
 
 func variantRowsToDomain(rows []dbgen.Variant) []*models.Variant {

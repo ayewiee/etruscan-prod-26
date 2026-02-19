@@ -15,6 +15,7 @@ const (
 	ErrCodeEmailAlreadyExists ErrorCode = "EMAIL_ALREADY_EXISTS"
 	ErrCodeDSLParseError      ErrorCode = "DSL_PARSE_ERROR"
 	ErrCodeInternal           ErrorCode = "INTERNAL_SERVER_ERROR"
+	ErrCodeLocked             ErrorCode = "LOCKED"
 )
 
 var (
@@ -95,5 +96,21 @@ func NewErrNotFound(message string, details map[string]interface{}, cause error)
 		ErrCodeNotFound,
 		message,
 		details, nil, cause,
+	)
+}
+
+func NewErrForbidden(message string) *ApiError {
+	return NewApiError(
+		ErrCodeForbidden,
+		message,
+		nil, nil, nil,
+	)
+}
+
+func NewErrLocked(message string) *ApiError {
+	return NewApiError(
+		ErrCodeLocked,
+		message,
+		nil, nil, nil,
 	)
 }

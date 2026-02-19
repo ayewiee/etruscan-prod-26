@@ -20,7 +20,7 @@ func (r UserRole) CanManageFlags() bool {
 }
 
 func (r UserRole) CanManageExperiments() bool {
-	return r == UserRoleExperimenter || r == UserRoleApprover || r == UserRoleAdmin
+	return r == UserRoleExperimenter || r == UserRoleAdmin
 }
 
 func (r UserRole) CanApprove() bool {

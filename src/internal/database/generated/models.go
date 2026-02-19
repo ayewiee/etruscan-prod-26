@@ -55,6 +55,49 @@ func (ns NullExperimentOutcome) Value() (driver.Value, error) {
 	return string(ns.ExperimentOutcome), nil
 }
 
+type ExperimentReviewDecision string
+
+const (
+	ExperimentReviewDecisionAPPROVED         ExperimentReviewDecision = "APPROVED"
+	ExperimentReviewDecisionCHANGESREQUESTED ExperimentReviewDecision = "CHANGES_REQUESTED"
+	ExperimentReviewDecisionDECLINED         ExperimentReviewDecision = "DECLINED"
+)
+
+func (e *ExperimentReviewDecision) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ExperimentReviewDecision(s)
+	case string:
+		*e = ExperimentReviewDecision(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ExperimentReviewDecision: %T", src)
+	}
+	return nil
+}
+
+type NullExperimentReviewDecision struct {
+	ExperimentReviewDecision ExperimentReviewDecision
+	Valid                    bool // Valid is true if ExperimentReviewDecision is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullExperimentReviewDecision) Scan(value interface{}) error {
+	if value == nil {
+		ns.ExperimentReviewDecision, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ExperimentReviewDecision.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullExperimentReviewDecision) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ExperimentReviewDecision), nil
+}
+
 type ExperimentStatus string
 
 const (
@@ -290,14 +333,6 @@ type Experiment struct {
 	UpdatedAt      pgtype.Timestamptz
 }
 
-type ExperimentApproval struct {
-	ID           uuid.UUID
-	ExperimentID uuid.UUID
-	ApproverID   uuid.UUID
-	Comment      pgtype.Text
-	CreatedAt    pgtype.Timestamptz
-}
-
 type ExperimentHistory struct {
 	ID           uuid.UUID
 	ExperimentID uuid.UUID
@@ -312,6 +347,15 @@ type ExperimentMetric struct {
 	ExperimentID uuid.UUID
 	MetricID     uuid.UUID
 	IsPrimary    bool
+}
+
+type ExperimentReview struct {
+	ID           uuid.UUID
+	ExperimentID uuid.UUID
+	ApproverID   uuid.UUID
+	Comment      pgtype.Text
+	CreatedAt    pgtype.Timestamptz
+	Decision     ExperimentReviewDecision
 }
 
 type Flag struct {

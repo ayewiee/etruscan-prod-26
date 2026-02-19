@@ -14,8 +14,8 @@ SET
 WHERE id = $1
 RETURNING *;
 
--- name: UpdateExperimentStatus :one
-UPDATE experiments SET status = $2 WHERE id = $1 RETURNING *;
+-- name: UpdateExperimentStatus :exec
+UPDATE experiments SET status = $2 WHERE id = $1;
 
 -- name: GetExperimentByID :one
 SELECT * FROM experiments WHERE id = $1;
@@ -26,7 +26,8 @@ WHERE
     (created_by = sqlc.narg('created_by') OR sqlc.narg('created_by') IS NULL)
     AND (status = sqlc.narg('status') OR sqlc.narg('status') IS NULL)
     AND (outcome = sqlc.narg('outcome') OR sqlc.narg('outcome') IS NULL)
-    AND (flag_id = sqlc.narg('flag_id') OR sqlc.narg('flag_id') IS NULL);
+    AND (flag_id = sqlc.narg('flag_id') OR sqlc.narg('flag_id') IS NULL)
+ORDER BY created_at DESC;
 
 -- name: FinishExperiment :one
 UPDATE experiments
@@ -48,3 +49,27 @@ SELECT * FROM variants WHERE experiment_id = $1;
 
 -- name: DeleteVariantsByExperiment :exec
 DELETE FROM variants WHERE experiment_id = $1;
+
+
+-- name: CreateExperimentReview :exec
+INSERT INTO experiment_reviews (experiment_id, approver_id, decision, comment)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT DO NOTHING;
+
+-- name: ListExperimentReviews :many
+SELECT * FROM experiment_reviews WHERE experiment_id = $1
+ORDER BY created_at DESC;
+
+-- name: CountApprovals :one
+SELECT COUNT(*) FROM experiment_reviews WHERE experiment_id = $1 AND decision = 'APPROVED';
+
+-- name: ClearExperimentReviews :exec
+DELETE FROM experiment_reviews WHERE experiment_id = $1;
+
+-- name: LogExperimentStatusChange :exec
+INSERT INTO experiment_history (experiment_id, actor_id, from_status, to_status, comment)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: GetExperimentStatusChangeHistory :many
+SELECT * FROM experiment_history WHERE experiment_id = $1
+ORDER BY created_at DESC;

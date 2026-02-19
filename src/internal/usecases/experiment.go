@@ -10,82 +10,46 @@ import (
 	"etruscan/internal/repository"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type ExperimentUseCase struct {
-	repo     repository.ExperimentRepository
-	flagRepo repository.FlagRepository
+	repo                repository.ExperimentRepository
+	flagRepo            repository.FlagRepository
+	userRepo            repository.UserRepository
+	defaultMinApprovals int
 }
 
 func NewExperimentUseCase(
 	repo repository.ExperimentRepository,
 	flagRepo repository.FlagRepository,
+	userRepo repository.UserRepository,
+	defaultMinApprovals int,
 ) *ExperimentUseCase {
-	return &ExperimentUseCase{repo: repo, flagRepo: flagRepo}
+	return &ExperimentUseCase{
+		repo:                repo,
+		flagRepo:            flagRepo,
+		userRepo:            userRepo,
+		defaultMinApprovals: defaultMinApprovals,
+	}
 }
 
-func (uc ExperimentUseCase) Create(
-	ctx context.Context,
-	actor models.UserAuthData,
-	experiment *models.Experiment,
-) (*models.Experiment, error) {
-	if !actor.Role.CanManageExperiments() {
-		return nil, models.ErrForbidden
-	}
-
+func (uc ExperimentUseCase) validateExperiment(ctx context.Context, experiment *models.Experiment) error {
 	// check that flag exists
 	flag, err := uc.flagRepo.GetByID(ctx, experiment.FlagID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, models.NewErrNotFound("Flag not found", echo.Map{"flagId": experiment.FlagID}, err)
+			return models.NewErrNotFound("Flag not found", echo.Map{"flagId": experiment.FlagID}, err)
 		}
-		return nil, err
+		return err
 	}
 
 	err = validateVariants(flag, experiment.Variants)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	experiment.CreatedBy = actor.ID
-	experiment.Status = models.ExperimentStatusDraft
-
-	exp, err := uc.repo.Create(ctx, experiment)
-	if err != nil {
-		return nil, err
-	}
-
-	err = uc.repo.CreateVariants(ctx, exp.ID, experiment.Variants)
-	if err != nil {
-		return nil, err
-	}
-	variants, err := uc.repo.ListVariantsByExperimentID(ctx, exp.ID)
-	if err != nil {
-		return nil, err
-	}
-	exp.Variants = variants
-
-	return exp, nil
-}
-
-func (uc ExperimentUseCase) GetByID(ctx context.Context, id uuid.UUID) (*models.Experiment, error) {
-	experiment, err := uc.repo.GetByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, models.NewErrNotFound("Experiment not found", nil, err)
-		}
-		return nil, err
-	}
-
-	variants, err := uc.repo.ListVariantsByExperimentID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	experiment.Variants = variants
-
-	return experiment, nil
+	return nil
 }
 
 func validateVariants(flag *models.Flag, variants []*models.Variant) error {
@@ -133,4 +97,18 @@ func validateVariants(flag *models.Flag, variants []*models.Variant) error {
 	}
 
 	return nil
+}
+
+// updateStatus well, updates status and logs it.
+// status transition is not being validated!!!
+func (uc ExperimentUseCase) updateStatus(
+	ctx context.Context,
+	statusChange *models.ExperimentStatusChange,
+) (err error) {
+	err = uc.repo.UpdateStatus(ctx, statusChange.ExperimentID, statusChange.To)
+	if err != nil {
+		return
+	}
+	err = uc.repo.LogExperimentStatusChange(ctx, statusChange)
+	return
 }

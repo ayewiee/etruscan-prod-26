@@ -36,9 +36,7 @@ func (s ExperimentStatus) CanTransitionTo(to ExperimentStatus) bool {
 	case ExperimentStatusDraft:
 		return to == ExperimentStatusOnReview
 	case ExperimentStatusOnReview:
-		return to == ExperimentStatusApproved || to == ExperimentStatusDeclined
-	case ExperimentStatusDeclined:
-		return to == ExperimentStatusDraft
+		return to == ExperimentStatusApproved || to == ExperimentStatusDraft || to == ExperimentStatusDeclined
 	case ExperimentStatusApproved:
 		return to == ExperimentStatusLaunched
 	case ExperimentStatusLaunched:
@@ -52,9 +50,13 @@ func (s ExperimentStatus) CanTransitionTo(to ExperimentStatus) bool {
 	}
 }
 
-func (s ExperimentStatus) CanBeEdited(to ExperimentStatus) bool {
+func (s ExperimentStatus) EditingAllowed() bool {
 	// TASK.md 2.3.2
-	return to == ExperimentStatusDraft || to == ExperimentStatusOnReview || to == ExperimentStatusApproved || to == ExperimentStatusDeclined
+	return s == ExperimentStatusDraft
+}
+func (s ExperimentStatus) ApprovalAllowed() bool {
+	// TASK.md 2.3.2
+	return s == ExperimentStatusOnReview
 }
 
 type ExperimentOutcome string
@@ -64,6 +66,31 @@ const (
 	ExperimentOutcomeRollback ExperimentOutcome = "ROLLBACK"
 	ExperimentOutcomeNoEffect ExperimentOutcome = "NO_EFFECT"
 )
+
+type ExperimentReviewAction string
+
+const (
+	ExperimentReviewActionApprove        ExperimentReviewAction = "APPROVE"
+	ExperimentReviewActionRequestChanges ExperimentReviewAction = "REQUEST_CHANGES"
+	ExperimentReviewActionDecline        ExperimentReviewAction = "DECLINE"
+)
+
+type ExperimentReviewDecision string
+
+const (
+	ExperimentReviewDecisionApproved         ExperimentReviewDecision = "APPROVED"
+	ExperimentReviewDecisionChangesRequested ExperimentReviewDecision = "CHANGES_REQUESTED"
+	ExperimentReviewDecisionDeclined         ExperimentReviewDecision = "DECLINED"
+)
+
+type ExperimentReview struct {
+	ID           uuid.UUID
+	ExperimentID uuid.UUID
+	ApproverID   uuid.UUID
+	Decision     ExperimentReviewDecision
+	Comment      *string
+	CreatedAt    time.Time
+}
 
 type Experiment struct {
 	ID     uuid.UUID
@@ -77,6 +104,10 @@ type Experiment struct {
 	AudiencePercentage int
 	TargetingRule      *string
 
+	Reviews []*ExperimentReview
+
+	Variants []*Variant
+
 	Outcome        *ExperimentOutcome
 	OutcomeComment *string
 	OutcomeSetAt   *time.Time
@@ -84,6 +115,14 @@ type Experiment struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
 
-	Variants []*Variant
+type ExperimentStatusChange struct {
+	ID           uuid.UUID
+	ExperimentID uuid.UUID
+	ActorID      *uuid.UUID
+	From         *ExperimentStatus
+	To           ExperimentStatus
+	Comment      *string
+	CreatedAt    time.Time
 }

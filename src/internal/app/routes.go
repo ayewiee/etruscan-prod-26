@@ -59,4 +59,10 @@ func (app *App) RegisterRoutes() {
 
 	protected.POST("/experiments", expHdl.Create)
 	protected.GET("/experiments/:id", expHdl.GetByID)
+	protected.PUT("/experiments/:id", expHdl.Update)
+	protected.POST("/experiments/:id/sendOnReview", expHdl.SendOnReview)
+	protected.POST("/experiments/:id/approve", expHdl.Approve)
+	protected.POST("/experiments/:id/requestChanges", expHdl.RequestChanges)
+	protected.POST("/experiments/:id/decline", expHdl.Decline)
+
 }
