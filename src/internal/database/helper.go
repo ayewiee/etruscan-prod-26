@@ -76,3 +76,10 @@ func ToNullExperimentStatus(v *models.ExperimentStatus) dbgen.NullExperimentStat
 	}
 	return dbgen.NullExperimentStatus{ExperimentStatus: dbgen.ExperimentStatus(*v), Valid: true}
 }
+func FromNullExperimentStatus(v dbgen.NullExperimentStatus) *models.ExperimentStatus {
+	if v.Valid {
+		es := models.ExperimentStatus(v.ExperimentStatus)
+		return &es
+	}
+	return nil
+}

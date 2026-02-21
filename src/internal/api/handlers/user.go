@@ -134,7 +134,7 @@ func (h *UserHandler) AdminList(c echo.Context) error {
 		return err
 	}
 
-	users, total, err := h.usecase.List(c.Request().Context(), actor, *pagination)
+	users, total, err := h.usecase.List(c.Request().Context(), actor, pagination)
 	if err != nil {
 		return err
 	}

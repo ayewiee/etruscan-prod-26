@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"etruscan/internal/app"
+	"etruscan/internal/infrastructure/cache"
 	"fmt"
 	"log"
 	"net/http"
@@ -30,6 +31,14 @@ func main() {
 	}
 
 	defer appInstance.DBPool.Close()
+
+	// goland wanted me to handle this error
+	defer func(RedisClient *cache.Client) {
+		err = RedisClient.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(appInstance.RedisClient)
 
 	// run the server
 	go func() {

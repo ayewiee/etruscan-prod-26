@@ -8,36 +8,36 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func ParsePagination(c echo.Context) (*pagination.Pagination, error) {
-	var err error
-	page := 0
-	size := 20
+func ParsePagination(c echo.Context) (pagination.Pagination, error) {
+	var page, size *int
 
 	rawPage := c.QueryParam("page")
 	if rawPage != "" {
-		page, err = strconv.Atoi(c.QueryParam("page"))
-		if err != nil || page < 0 {
-			return nil, apierrors.DumbValidationError(
+		parsedPage, err := strconv.Atoi(c.QueryParam("page"))
+		if err != nil || parsedPage < 0 {
+			return pagination.Pagination{}, apierrors.DumbValidationError(
 				"page",
 				c.QueryParam("page"),
 				"page must be > 0",
 				err,
 			)
 		}
+		page = &parsedPage
 
 	}
 	rawSize := c.QueryParam("size")
 	if rawSize != "" {
-		size, err = strconv.Atoi(c.QueryParam("size"))
-		if err != nil || size < 1 || size > 100 {
-			return nil, apierrors.DumbValidationError(
+		parsedSize, err := strconv.Atoi(c.QueryParam("size"))
+		if err != nil || parsedSize < 1 || parsedSize > 100 {
+			return pagination.Pagination{}, apierrors.DumbValidationError(
 				"size",
 				c.QueryParam("size"),
 				"page must be between 1 and 100",
 				err,
 			)
 		}
+		size = &parsedSize
 	}
 
-	return &pagination.Pagination{Page: page, Size: size}, nil
+	return pagination.NewPagination(page, size), nil
 }

@@ -34,7 +34,7 @@ func NewExperimentUseCase(
 	}
 }
 
-func (uc ExperimentUseCase) validateExperiment(ctx context.Context, experiment *models.Experiment) error {
+func (uc *ExperimentUseCase) validateExperiment(ctx context.Context, experiment *models.Experiment) error {
 	// check that flag exists
 	flag, err := uc.flagRepo.GetByID(ctx, experiment.FlagID)
 	if err != nil {
@@ -101,7 +101,7 @@ func validateVariants(flag *models.Flag, variants []*models.Variant) error {
 
 // updateStatus well, updates status and logs it.
 // status transition is not being validated!!!
-func (uc ExperimentUseCase) updateStatus(
+func (uc *ExperimentUseCase) updateStatus(
 	ctx context.Context,
 	statusChange *models.ExperimentStatusChange,
 ) (err error) {

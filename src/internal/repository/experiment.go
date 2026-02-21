@@ -9,11 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type ListFilters struct {
+type ExperimentListFilters struct {
 	FlagID    *uuid.UUID
 	CreatedBy *uuid.UUID
 	Status    *models.ExperimentStatus
 	Outcome   *models.ExperimentOutcome
+	Limit     int
+	Offset    int
 }
 
 type ExperimentRepository interface {
@@ -21,7 +23,14 @@ type ExperimentRepository interface {
 	Update(ctx context.Context, experiment *models.Experiment) (*models.Experiment, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Experiment, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status models.ExperimentStatus) error
-	List(ctx context.Context, filters ListFilters) ([]*models.Experiment, error)
+	List(ctx context.Context, filters ExperimentListFilters) ([]*models.Experiment, int, error)
+	ListStatusChanges(ctx context.Context, experimentID uuid.UUID) ([]*models.ExperimentStatusChange, error)
+
+	SaveExperimentSnapshot(ctx context.Context, snapshot *models.ExperimentSnapshot) error
+	ListExperimentSnapshots(ctx context.Context, experimentID uuid.UUID) ([]*models.ExperimentSnapshot, error)
+
+	GetActiveExperimentByFlagKey(ctx context.Context, flagID string) (*models.Experiment, error)
+	GetRunningExperimentByFlagKey(ctx context.Context, flagID string) (*models.Experiment, error)
 
 	CreateVariants(ctx context.Context, experimentID uuid.UUID, variants []*models.Variant) error
 	ListVariantsByExperimentID(ctx context.Context, experimentID uuid.UUID) ([]*models.Variant, error)
@@ -95,15 +104,30 @@ func (r SQLCExperimentRepository) UpdateStatus(
 	})
 }
 
-func (r SQLCExperimentRepository) List(ctx context.Context, filters ListFilters) ([]*models.Experiment, error) {
-	rows, err := r.db.ListExperiments(ctx, dbgen.ListExperimentsParams{
+func (r SQLCExperimentRepository) List(
+	ctx context.Context,
+	filters ExperimentListFilters,
+) ([]*models.Experiment, int, error) {
+	total, err := r.db.CountExperiments(ctx, dbgen.CountExperimentsParams{
 		CreatedBy: database.ToPgUUID(filters.CreatedBy),
 		Status:    database.ToNullExperimentStatus(filters.Status),
 		Outcome:   database.ToNullExperimentOutcome(filters.Outcome),
 		FlagID:    database.ToPgUUID(filters.FlagID),
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	rows, err := r.db.ListExperiments(ctx, dbgen.ListExperimentsParams{
+		CreatedBy: database.ToPgUUID(filters.CreatedBy),
+		Status:    database.ToNullExperimentStatus(filters.Status),
+		Outcome:   database.ToNullExperimentOutcome(filters.Outcome),
+		FlagID:    database.ToPgUUID(filters.FlagID),
+		Limit:     int32(filters.Limit),
+		Offset:    int32(filters.Offset),
+	})
+	if err != nil {
+		return nil, 0, err
 	}
 
 	experiments := make([]*models.Experiment, len(rows))
@@ -111,7 +135,103 @@ func (r SQLCExperimentRepository) List(ctx context.Context, filters ListFilters)
 		experiments[i] = experimentRowToDomain(row)
 	}
 
-	return experiments, nil
+	return experiments, int(total), nil
+}
+
+func (r SQLCExperimentRepository) SaveExperimentSnapshot(
+	ctx context.Context,
+	snapshot *models.ExperimentSnapshot,
+) error {
+	jsonData, err := snapshot.Data.ToJSON()
+	if err != nil {
+		return err
+	}
+
+	err = r.db.CreateExperimentSnapshot(ctx, dbgen.CreateExperimentSnapshotParams{
+		ExperimentID: snapshot.ExperimentID,
+		Version:      int32(snapshot.Version),
+		Data:         jsonData,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r SQLCExperimentRepository) ListExperimentSnapshots(
+	ctx context.Context,
+	experimentID uuid.UUID,
+) ([]*models.ExperimentSnapshot, error) {
+	rows, err := r.db.GetExperimentSnapshots(ctx, experimentID)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshots := make([]*models.ExperimentSnapshot, len(rows))
+	for i, row := range rows {
+		data := models.ExperimentSnapshotData{}
+		err = data.LoadFromJSON(row.Data)
+		if err != nil {
+			return nil, err
+		}
+		snapshots[i] = &models.ExperimentSnapshot{
+			ID:           row.ID,
+			ExperimentID: row.ExperimentID,
+			Version:      int(row.Version),
+			Data:         &data,
+			CreatedAt:    row.CreatedAt.Time,
+		}
+	}
+
+	return snapshots, nil
+}
+
+func (r SQLCExperimentRepository) ListStatusChanges(
+	ctx context.Context,
+	experimentID uuid.UUID,
+) ([]*models.ExperimentStatusChange, error) {
+	rows, err := r.db.ListExperimentStatusChanges(ctx, experimentID)
+	if err != nil {
+		return nil, err
+	}
+
+	experimentStatusChanges := make([]*models.ExperimentStatusChange, len(rows))
+	for i, row := range rows {
+		experimentStatusChanges[i] = &models.ExperimentStatusChange{
+			ID:           row.ID,
+			ExperimentID: row.ExperimentID,
+			ActorID:      database.FromPgUUID(row.ActorID),
+			From:         database.FromNullExperimentStatus(row.FromStatus),
+			To:           models.ExperimentStatus(row.ToStatus),
+			Comment:      database.FromPgText(row.Comment),
+			CreatedAt:    row.CreatedAt.Time,
+		}
+	}
+
+	return experimentStatusChanges, nil
+}
+
+func (r SQLCExperimentRepository) GetActiveExperimentByFlagKey(
+	ctx context.Context,
+	flagKey string,
+) (*models.Experiment, error) {
+	exp, err := r.db.GetActiveExperimentByFlagKey(ctx, flagKey)
+	if err != nil {
+		return nil, err
+	}
+	return experimentRowToDomain(exp), nil
+}
+
+func (r SQLCExperimentRepository) GetRunningExperimentByFlagKey(
+	ctx context.Context,
+	flagKey string,
+) (*models.Experiment, error) {
+	exp, err := r.db.GetRunningExperimentByFlagKey(ctx, flagKey)
+	if err != nil {
+		return nil, err
+	}
+	return experimentRowToDomain(exp), nil
 }
 
 func (r SQLCExperimentRepository) CreateVariants(
@@ -164,6 +284,7 @@ func experimentRowToDomain(experiment dbgen.Experiment) *models.Experiment {
 		Description:        database.FromPgText(experiment.Description),
 		CreatedBy:          experiment.CreatedBy,
 		Status:             models.ExperimentStatus(experiment.Status),
+		Version:            int(experiment.Version),
 		AudiencePercentage: int(experiment.AudiencePct),
 		TargetingRule:      database.FromPgText(experiment.TargetingRule),
 		Outcome:            database.FromNullExperimentOutcome(experiment.Outcome),

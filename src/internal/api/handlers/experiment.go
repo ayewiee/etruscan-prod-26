@@ -4,6 +4,7 @@ import (
 	"etruscan/internal/api"
 	"etruscan/internal/api/apierrors"
 	"etruscan/internal/api/dto"
+	"etruscan/internal/common/pagination"
 	"etruscan/internal/domain/models"
 	"etruscan/internal/usecases"
 	"net/http"
@@ -20,19 +21,33 @@ func NewExperimentHandler(usecase *usecases.ExperimentUseCase) *ExperimentHandle
 	return &ExperimentHandler{usecase}
 }
 
-func modifyRequest(c echo.Context) (models.UserAuthData, *models.Experiment, error) {
+func (h *ExperimentHandler) parseActorAndEntityId(c echo.Context) (models.UserAuthData, uuid.UUID, error) {
 	actor, err := api.ExtractUserAuthDataFromContext(c)
 	if err != nil {
-		return models.UserAuthData{}, nil, err
+		return models.UserAuthData{}, uuid.Nil, err
 	}
 
+	expId, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return models.UserAuthData{}, uuid.Nil, apierrors.DumbValidationError(
+			"id",
+			c.Param("id"),
+			"Invalid UUID",
+			err,
+		)
+	}
+
+	return actor, expId, nil
+}
+
+func parseEntityModification(c echo.Context) (*models.Experiment, error) {
 	var req dto.CreateUpdateExperimentRequest
 
 	if err := c.Bind(&req); err != nil {
-		return models.UserAuthData{}, nil, err
+		return nil, err
 	}
 	if err := c.Validate(&req); err != nil {
-		return models.UserAuthData{}, nil, apierrors.ValidationError(err, req)
+		return nil, apierrors.ValidationError(err, req)
 	}
 
 	variantsDomain := make([]*models.Variant, len(req.Variants))
@@ -51,7 +66,7 @@ func modifyRequest(c echo.Context) (models.UserAuthData, *models.Experiment, err
 		}
 	}
 
-	return actor, &models.Experiment{
+	return &models.Experiment{
 		FlagID:             req.FlagID,
 		Name:               req.Name,
 		Description:        req.Description,
@@ -62,7 +77,12 @@ func modifyRequest(c echo.Context) (models.UserAuthData, *models.Experiment, err
 }
 
 func (h *ExperimentHandler) Create(c echo.Context) error {
-	actor, domainExperiment, err := modifyRequest(c)
+	actor, err := api.ExtractUserAuthDataFromContext(c)
+	if err != nil {
+		return err
+	}
+
+	domainExperiment, err := parseEntityModification(c)
 	if err != nil {
 		return err
 	}
@@ -76,9 +96,9 @@ func (h *ExperimentHandler) Create(c echo.Context) error {
 }
 
 func (h *ExperimentHandler) GetByID(c echo.Context) error {
-	expId, err := uuid.Parse(c.Param("id"))
+	_, expId, err := h.parseActorAndEntityId(c)
 	if err != nil {
-		return apierrors.DumbValidationError("id", c.Param("id"), "Invalid UUID", err)
+		return err
 	}
 
 	exp, err := h.usecase.GetByID(c.Request().Context(), expId)
@@ -89,13 +109,63 @@ func (h *ExperimentHandler) GetByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, dto.ExperimentResponseFromDomain(exp))
 }
 
-func (h *ExperimentHandler) Update(c echo.Context) error {
-	expId, err := uuid.Parse(c.Param("id"))
+func (h *ExperimentHandler) List(c echo.Context) error {
+	actor, err := api.ExtractUserAuthDataFromContext(c)
 	if err != nil {
-		return apierrors.DumbValidationError("id", c.Param("id"), "Invalid UUID", err)
+		return err
 	}
 
-	actor, domainExperiment, err := modifyRequest(c)
+	var req dto.ExperimentListFiltersQuery
+
+	if err = c.Bind(&req); err != nil {
+		return err
+	}
+	if err = c.Validate(&req); err != nil {
+		return apierrors.ValidationError(err, req)
+	}
+
+	pg := pagination.NewPagination(req.Page, req.Size)
+
+	experiments, total, err := h.usecase.List(c.Request().Context(), actor, usecases.ExperimentListFilters{
+		FlagID:     req.FlagID,
+		CreatedBy:  req.CreatedBy,
+		Status:     (*models.ExperimentStatus)(req.Status),
+		Outcome:    (*models.ExperimentOutcome)(req.Outcome),
+		Pagination: pg,
+	})
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, dto.PaginatedResponse{
+		Items: dto.ExperimentResponseListFromDomain(experiments),
+		Total: total,
+		Page:  pg.Page,
+		Size:  pg.Size,
+	})
+}
+
+func (h *ExperimentHandler) ListStatusChanges(c echo.Context) error {
+	_, expId, err := h.parseActorAndEntityId(c)
+	if err != nil {
+		return err
+	}
+
+	changes, err := h.usecase.ListStatusChanges(c.Request().Context(), expId)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, dto.ExperimentStatusChangeResponseListFromDomain(changes))
+}
+
+func (h *ExperimentHandler) Update(c echo.Context) error {
+	actor, expId, err := h.parseActorAndEntityId(c)
+	if err != nil {
+		return err
+	}
+
+	domainExperiment, err := parseEntityModification(c)
 	if err != nil {
 		return err
 	}
@@ -110,15 +180,24 @@ func (h *ExperimentHandler) Update(c echo.Context) error {
 	return c.JSON(http.StatusOK, dto.ExperimentResponseFromDomain(exp))
 }
 
-func (h *ExperimentHandler) SendOnReview(c echo.Context) error {
-	actor, err := api.ExtractUserAuthDataFromContext(c)
+func (h *ExperimentHandler) ListSnapshots(c echo.Context) error {
+	_, expId, err := h.parseActorAndEntityId(c)
 	if err != nil {
 		return err
 	}
 
-	expId, err := uuid.Parse(c.Param("id"))
+	snapshots, err := h.usecase.ListSnapshots(c.Request().Context(), expId)
 	if err != nil {
-		return apierrors.DumbValidationError("id", c.Param("id"), "Invalid UUID", err)
+		return err
+	}
+
+	return c.JSON(http.StatusOK, dto.ExperimentSnapshotResponseListFromDomain(snapshots))
+}
+
+func (h *ExperimentHandler) SendOnReview(c echo.Context) error {
+	actor, expId, err := h.parseActorAndEntityId(c)
+	if err != nil {
+		return err
 	}
 
 	err = h.usecase.SendOnReview(c.Request().Context(), actor, expId)
@@ -130,14 +209,9 @@ func (h *ExperimentHandler) SendOnReview(c echo.Context) error {
 }
 
 func (h *ExperimentHandler) review(c echo.Context, action models.ExperimentReviewAction) error {
-	actor, err := api.ExtractUserAuthDataFromContext(c)
+	actor, expId, err := h.parseActorAndEntityId(c)
 	if err != nil {
 		return err
-	}
-
-	expId, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		return apierrors.DumbValidationError("id", c.Param("id"), "Invalid UUID", err)
 	}
 
 	var comment *string
@@ -178,4 +252,32 @@ func (h *ExperimentHandler) RequestChanges(c echo.Context) error {
 
 func (h *ExperimentHandler) Decline(c echo.Context) error {
 	return h.review(c, models.ExperimentReviewActionDecline)
+}
+
+func (h *ExperimentHandler) Launch(c echo.Context) error {
+	actor, expId, err := h.parseActorAndEntityId(c)
+	if err != nil {
+		return err
+	}
+
+	err = h.usecase.Launch(c.Request().Context(), actor, expId)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully launched!"})
+}
+
+func (h *ExperimentHandler) Pause(c echo.Context) error {
+	actor, expId, err := h.parseActorAndEntityId(c)
+	if err != nil {
+		return err
+	}
+
+	err = h.usecase.Pause(c.Request().Context(), actor, expId)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully paused!"})
 }

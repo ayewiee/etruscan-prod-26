@@ -5,14 +5,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: etruscan
+      REDIS_ADDR: redis:6379
       JWT_SECRET: guesswhosbackbackagain
       DEFAULT_MIN_APPROVALS: 2
+      PRODUCTION_MODE: false
     ports:
       - "8080:8080"
     healthcheck:
@@ -37,5 +41,19 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+  redis:
+    image: redis:7-alpine
+    container_name: etruscan-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 volumes:
   postgres_data:
+  redis_data:

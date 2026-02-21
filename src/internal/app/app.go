@@ -5,8 +5,10 @@ import (
 	"etruscan/internal/app/logger"
 	"etruscan/internal/database"
 	dbgen "etruscan/internal/database/generated"
+	"etruscan/internal/infrastructure/cache"
 	"etruscan/internal/provider"
 	"etruscan/internal/repository"
+	cacherepo "etruscan/internal/repository/cache"
 	"etruscan/internal/usecases"
 	"time"
 
@@ -16,12 +18,13 @@ import (
 )
 
 type App struct {
-	Context context.Context
-	Echo    *echo.Echo
-	Config  *Config
-	DB      *dbgen.Queries
-	DBPool  *pgxpool.Pool
-	Deps    *Dependencies
+	Context     context.Context
+	Echo        *echo.Echo
+	Config      *Config
+	DB          *dbgen.Queries
+	DBPool      *pgxpool.Pool
+	RedisClient *cache.Client
+	Deps        *Dependencies
 }
 
 func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
@@ -31,6 +34,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	}
 
 	queries := dbgen.New(dbPool)
+	redisClient := cache.NewRedisClient(cfg.RedisAddr)
 
 	log, err := logger.NewZapLogger(cfg.ProductionMode)
 	if err != nil {
@@ -44,6 +48,11 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	approverGroupRepo := repository.NewSQLCApproverGroupRepository(queries)
 	flagRepo := repository.NewSQLCFlagRepository(queries)
 	experimentRepo := repository.NewSQLCExperimentRepository(queries)
+	decisionRepo := repository.NewSQLCDecisionRepository(queries)
+
+	activeExpCache := cacherepo.NewRunningExperimentCache(redisClient)
+	ptcptnTracker := cacherepo.NewParticipationTracker(redisClient)
+	flagCache := cacherepo.NewFlagCache(redisClient)
 
 	deps := Dependencies{
 		AuthUseCase:          usecases.NewAuthUseCase(userRepo, passwordHasher, jwtProvider),
@@ -51,6 +60,15 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 		ApproverGroupUseCase: usecases.NewApproverGroupUseCase(approverGroupRepo, userRepo),
 		FlagUseCase:          usecases.NewFlagUseCase(flagRepo),
 		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo, userRepo, cfg.DefaultMinApprovals),
+		DecideUseCase: usecases.NewDecideUseCase(
+			activeExpCache,
+			ptcptnTracker,
+			flagCache,
+			decisionRepo,
+			experimentRepo,
+			flagRepo,
+			log,
+		),
 	}
 
 	app := &App{

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (uc ExperimentUseCase) SendOnReview(
+func (uc *ExperimentUseCase) SendOnReview(
 	ctx context.Context,
 	actor models.UserAuthData,
 	id uuid.UUID,
@@ -53,7 +53,7 @@ type ExperimentReviewInput struct {
 	Comment *string
 }
 
-func (uc ExperimentUseCase) Review(
+func (uc *ExperimentUseCase) Review(
 	ctx context.Context,
 	inp ExperimentReviewInput,
 ) error {
@@ -85,7 +85,7 @@ func (uc ExperimentUseCase) Review(
 	}
 }
 
-func (uc ExperimentUseCase) approveExperiment(
+func (uc *ExperimentUseCase) approveExperiment(
 	ctx context.Context,
 	actor models.UserAuthData,
 	exp *models.Experiment,
@@ -124,7 +124,7 @@ func (uc ExperimentUseCase) approveExperiment(
 	return nil
 }
 
-func (uc ExperimentUseCase) checkApprovalsCount(
+func (uc *ExperimentUseCase) checkApprovalsCount(
 	ctx context.Context,
 	exp *models.Experiment,
 ) (bool, int, error) {
@@ -152,7 +152,7 @@ func (uc ExperimentUseCase) checkApprovalsCount(
 	return false, minApprovals, nil
 }
 
-func (uc ExperimentUseCase) requestChangesForExperiment(
+func (uc *ExperimentUseCase) requestChangesForExperiment(
 	ctx context.Context,
 	exp *models.Experiment,
 	inp ExperimentReviewInput,
@@ -187,7 +187,7 @@ func (uc ExperimentUseCase) requestChangesForExperiment(
 	// TODO: notify about this
 }
 
-func (uc ExperimentUseCase) declineExperiment(
+func (uc *ExperimentUseCase) declineExperiment(
 	ctx context.Context,
 	exp *models.Experiment,
 	inp ExperimentReviewInput,

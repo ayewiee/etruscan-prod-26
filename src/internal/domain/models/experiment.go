@@ -93,13 +93,15 @@ type ExperimentReview struct {
 }
 
 type Experiment struct {
-	ID     uuid.UUID
-	FlagID uuid.UUID
+	ID      uuid.UUID
+	FlagID  uuid.UUID
+	FlagKey string
 
 	Name        string
 	Description *string
 	CreatedBy   uuid.UUID
 	Status      ExperimentStatus
+	Version     int
 
 	AudiencePercentage int
 	TargetingRule      *string
@@ -115,6 +117,44 @@ type Experiment struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type VariantSnapshotData struct {
+	Name      string          `json:"name"`
+	Value     json.RawMessage `json:"value"`
+	Weight    int             `json:"weight"`
+	IsControl bool            `json:"isControl"`
+}
+
+type ExperimentSnapshotData struct {
+	ID     uuid.UUID `json:"id"`
+	FlagID uuid.UUID `json:"flagId"`
+
+	Name        string           `json:"name"`
+	Description *string          `json:"description"`
+	Status      ExperimentStatus `json:"status"`
+	Version     int              `json:"version"`
+
+	AudiencePercentage int     `json:"audiencePercentage"`
+	TargetingRule      *string `json:"targetingRule"`
+
+	Variants []*VariantSnapshotData `json:"variants"`
+}
+
+func (e *ExperimentSnapshotData) LoadFromJSON(data []byte) error {
+	return json.Unmarshal(data, e)
+}
+
+func (e *ExperimentSnapshotData) ToJSON() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+type ExperimentSnapshot struct {
+	ID           uuid.UUID
+	ExperimentID uuid.UUID
+	Version      int
+	Data         *ExperimentSnapshotData
+	CreatedAt    time.Time
 }
 
 type ExperimentStatusChange struct {

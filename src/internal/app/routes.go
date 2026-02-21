@@ -58,6 +58,8 @@ func (app *App) RegisterRoutes() {
 	expHdl := handlers.NewExperimentHandler(app.Deps.ExperimentUseCase)
 
 	protected.POST("/experiments", expHdl.Create)
+	protected.GET("/experiments", expHdl.List)
+
 	protected.GET("/experiments/:id", expHdl.GetByID)
 	protected.PUT("/experiments/:id", expHdl.Update)
 	protected.POST("/experiments/:id/sendOnReview", expHdl.SendOnReview)
@@ -65,4 +67,13 @@ func (app *App) RegisterRoutes() {
 	protected.POST("/experiments/:id/requestChanges", expHdl.RequestChanges)
 	protected.POST("/experiments/:id/decline", expHdl.Decline)
 
+	protected.GET("/experiments/:id/statusChanges", expHdl.ListStatusChanges)
+	protected.GET("/experiments/:id/snapshots", expHdl.ListSnapshots)
+
+	protected.POST("/experiments/:id/launch", expHdl.Launch)
+	protected.POST("/experiments/:id/pause", expHdl.Pause)
+
+	decideHdl := handlers.NewDecideHandler(app.Deps.DecideUseCase)
+
+	apiv1.POST("/decide", decideHdl.Decide)
 }

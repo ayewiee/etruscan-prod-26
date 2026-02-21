@@ -1,6 +1,8 @@
 package app
 
-import "etruscan/internal/usecases"
+import (
+	"etruscan/internal/usecases"
+)
 
 type Dependencies struct {
 	AuthUseCase          *usecases.AuthUseCase
@@ -8,4 +10,5 @@ type Dependencies struct {
 	ApproverGroupUseCase *usecases.ApproverGroupUseCase
 	FlagUseCase          *usecases.FlagUseCase
 	ExperimentUseCase    *usecases.ExperimentUseCase
+	DecideUseCase        *usecases.DecideUseCase
 }

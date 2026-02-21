@@ -290,8 +290,10 @@ type ApproverGroupMembership struct {
 
 type Decision struct {
 	ID           uuid.UUID
-	ExperimentID uuid.UUID
-	VariantID    uuid.UUID
+	ExperimentID pgtype.UUID
+	VariantID    pgtype.UUID
+	FlagKey      string
+	Value        []byte
 	UserID       string
 	Context      []byte
 	CreatedAt    pgtype.Timestamptz
@@ -356,6 +358,14 @@ type ExperimentReview struct {
 	Comment      pgtype.Text
 	CreatedAt    pgtype.Timestamptz
 	Decision     ExperimentReviewDecision
+}
+
+type ExperimentSnapshot struct {
+	ID           uuid.UUID
+	ExperimentID uuid.UUID
+	Version      int32
+	Data         []byte
+	CreatedAt    pgtype.Timestamptz
 }
 
 type Flag struct {
