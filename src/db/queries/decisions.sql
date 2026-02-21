@@ -5,3 +5,10 @@ RETURNING id;
 
 -- name: GetDecisionById :one
 SELECT * FROM decisions d WHERE d.id = $1;
+
+-- name: ListDecisionIDsByExperimentVariantWindow :many
+SELECT id FROM decisions
+WHERE experiment_id = $1
+  AND (sqlc.narg('variant_id')::uuid IS NULL OR variant_id = sqlc.narg('variant_id'))
+  AND created_at >= $2
+  AND created_at < $3;

@@ -29,7 +29,7 @@ func (h *ApproverGroupHandler) Create(c echo.Context) error {
 	var req dto.CreateApproverGroupRequest
 
 	if err := c.Bind(&req); err != nil {
-		return err
+		return models.ErrInvalidJSON
 	}
 	if err := c.Validate(&req); err != nil {
 		return apierrors.ValidationError(err, req)
@@ -105,7 +105,7 @@ func (h *ApproverGroupHandler) modifyMembers(c echo.Context) (models.UserAuthDat
 	var req dto.ModifyApproverGroupMembersRequest
 
 	if err := c.Bind(&req); err != nil {
-		return models.UserAuthData{}, uuid.Nil, nil, err
+		return models.UserAuthData{}, uuid.Nil, nil, models.ErrInvalidJSON
 	}
 	if err := c.Validate(&req); err != nil {
 		return models.UserAuthData{}, uuid.Nil, nil, apierrors.ValidationError(err, req)

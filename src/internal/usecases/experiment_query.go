@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"etruscan/internal/common/pagination"
 	"etruscan/internal/domain/models"
@@ -10,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (uc *ExperimentUseCase) Create(
@@ -50,13 +50,26 @@ func (uc *ExperimentUseCase) Create(
 	}
 	exp.Reviews = reviews
 
+	err = uc.setExperimentMetrics(ctx, exp.ID, experiment.MetricKeys, experiment.PrimaryMetricKey)
+	if err != nil {
+		return nil, err
+	}
+	exp.MetricKeys = experiment.MetricKeys
+	exp.PrimaryMetricKey = experiment.PrimaryMetricKey
+
+	guardrails, err := uc.setGuardrails(ctx, exp.ID, experiment.Guardrails)
+	if err != nil {
+		return nil, err
+	}
+	exp.Guardrails = guardrails
+
 	return exp, nil
 }
 
 func (uc *ExperimentUseCase) GetByID(ctx context.Context, id uuid.UUID) (*models.Experiment, error) {
 	experiment, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.NewErrNotFound("Experiment not found", nil, err)
 		}
 		return nil, err
@@ -73,6 +86,41 @@ func (uc *ExperimentUseCase) GetByID(ctx context.Context, id uuid.UUID) (*models
 		return nil, err
 	}
 	experiment.Reviews = reviews
+
+	em, err := uc.metricRepo.ListExperimentMetrics(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(em) > 0 {
+		experiment.MetricKeys = make([]string, len(em))
+		experiment.Metrics = make([]*models.ExperimentMetricRef, 0, len(em))
+		for i, m := range em {
+			experiment.MetricKeys[i] = m.MetricKey
+		}
+		for _, m := range em {
+			if m.IsPrimary {
+				experiment.PrimaryMetricKey = &m.MetricKey
+				break
+			}
+		}
+		for _, m := range em {
+			metric, err := uc.metricRepo.GetByID(ctx, m.MetricID)
+			if err != nil {
+				continue
+			}
+			experiment.Metrics = append(experiment.Metrics, &models.ExperimentMetricRef{
+				Metric:    metric,
+				IsPrimary: m.IsPrimary,
+			})
+		}
+	}
+
+	guardrails, err := uc.guardrailRepo.ListByExperimentID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	experiment.Guardrails = guardrails
 
 	return experiment, nil
 }
@@ -144,7 +192,94 @@ func (uc *ExperimentUseCase) Update(
 	}
 	updExp.Reviews = reviews
 
+	err = uc.setExperimentMetrics(ctx, updExp.ID, experiment.MetricKeys, experiment.PrimaryMetricKey)
+	if err != nil {
+		return nil, err
+	}
+	updExp.MetricKeys = experiment.MetricKeys
+	updExp.PrimaryMetricKey = experiment.PrimaryMetricKey
+
+	guardrails, err := uc.setGuardrails(ctx, updExp.ID, experiment.Guardrails)
+	if err != nil {
+		return nil, err
+	}
+	updExp.Guardrails = guardrails
+
 	return updExp, nil
+}
+
+func (uc *ExperimentUseCase) setGuardrails(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	inputs []*models.Guardrail,
+) ([]*models.Guardrail, error) {
+	if len(inputs) == 0 {
+		return nil, nil
+	}
+
+	if err := uc.guardrailRepo.DeleteByExperimentID(ctx, experimentID); err != nil {
+		return nil, err
+	}
+
+	var guardrails []*models.Guardrail
+
+	for _, g := range inputs {
+		metric, err := uc.metricRepo.GetByKey(ctx, g.MetricKey)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, models.NewErrNotFound("Metric not found", map[string]interface{}{"key": g.MetricKey}, err)
+			}
+			return nil, err
+		}
+
+		createdGuardrail, err := uc.guardrailRepo.Create(
+			ctx,
+			experimentID,
+			metric.ID,
+			g.Threshold,
+			g.ThresholdDirection,
+			g.Action,
+			g.WindowSeconds,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		guardrails = append(guardrails, createdGuardrail)
+	}
+	return guardrails, nil
+}
+
+func (uc *ExperimentUseCase) setExperimentMetrics(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	metricKeys []string,
+	primaryMetricKey *string,
+) error {
+	if len(metricKeys) == 0 {
+		return nil
+	}
+
+	if err := uc.metricRepo.DeleteExperimentMetrics(ctx, experimentID); err != nil {
+		return err
+	}
+
+	for _, key := range metricKeys {
+		metric, err := uc.metricRepo.GetByKey(ctx, key)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return models.NewErrNotFound("Metric not found", map[string]interface{}{"key": key}, err)
+			}
+			return err
+		}
+
+		isPrimary := primaryMetricKey != nil && *primaryMetricKey == key
+
+		if err := uc.metricRepo.AddExperimentMetric(ctx, experimentID, metric.ID, isPrimary); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (uc *ExperimentUseCase) saveSnapshot(ctx context.Context, exp *models.Experiment) error {

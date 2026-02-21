@@ -17,6 +17,8 @@ type ExperimentUseCase struct {
 	repo                repository.ExperimentRepository
 	flagRepo            repository.FlagRepository
 	userRepo            repository.UserRepository
+	metricRepo          repository.MetricRepository
+	guardrailRepo       repository.GuardrailRepository
 	defaultMinApprovals int
 }
 
@@ -24,12 +26,16 @@ func NewExperimentUseCase(
 	repo repository.ExperimentRepository,
 	flagRepo repository.FlagRepository,
 	userRepo repository.UserRepository,
+	metricRepo repository.MetricRepository,
+	guardrailRepo repository.GuardrailRepository,
 	defaultMinApprovals int,
 ) *ExperimentUseCase {
 	return &ExperimentUseCase{
 		repo:                repo,
 		flagRepo:            flagRepo,
 		userRepo:            userRepo,
+		metricRepo:          metricRepo,
+		guardrailRepo:       guardrailRepo,
 		defaultMinApprovals: defaultMinApprovals,
 	}
 }

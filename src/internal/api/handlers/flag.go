@@ -29,7 +29,7 @@ func modifyFlagRequest(c echo.Context) (models.UserAuthData, *models.Flag, error
 	var req dto.CreateUpdateFlagRequest
 
 	if err := c.Bind(&req); err != nil {
-		return models.UserAuthData{}, nil, err
+		return models.UserAuthData{}, nil, models.ErrInvalidJSON
 	}
 	if err := c.Validate(&req); err != nil {
 		return models.UserAuthData{}, nil, apierrors.ValidationError(err, req)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"etruscan/internal/api/apierrors"
 	"etruscan/internal/api/dto"
+	"etruscan/internal/domain/models"
 	"etruscan/internal/usecases"
 	"net/http"
 
@@ -21,7 +22,7 @@ func (h *DecideHandler) Decide(c echo.Context) error {
 	var req dto.DecideRequest
 
 	if err := c.Bind(&req); err != nil {
-		return err
+		return models.ErrInvalidJSON
 	}
 	if err := c.Validate(&req); err != nil {
 		return apierrors.ValidationError(err, req)

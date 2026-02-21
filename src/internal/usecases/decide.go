@@ -144,6 +144,20 @@ func (uc *DecideUseCase) Decide(ctx context.Context, params DecideParams) (*mode
 		return uc.returnDefault(ctx, flag, params)
 	}
 
+	canParticipate, err := uc.participationTrackerCache.CanParticipate(ctx, params.UserID, exp.ID)
+	if err != nil {
+		uc.logger.Error("participation check failed, returned default", zap.Error(err))
+		return uc.returnDefault(ctx, flag, params)
+	}
+	if !canParticipate {
+		uc.logger.Debug(
+			"user participation limit reached — got default value",
+			zap.String("userId", params.UserID),
+			zap.Any("value", flag.DefaultValue),
+		)
+		return uc.returnDefault(ctx, flag, params)
+	}
+
 	variantSalt := "variant"
 	variantBucket, err := bucketing.HashAndBucket(params.UserID, flag.Key, exp.ID, &variantSalt)
 	if err != nil { // fail-safe

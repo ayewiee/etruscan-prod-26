@@ -17,12 +17,23 @@ type VariantRequest struct {
 }
 
 type CreateUpdateExperimentRequest struct {
-	FlagID             uuid.UUID         `json:"flagId" validate:"required,uuid"`
-	Name               string            `json:"name" validate:"required,min=5"`
-	Description        *string           `json:"description"`
-	AudiencePercentage int               `json:"audiencePercentage" validate:"required,gt=0,lte=100"`
-	TargetingRule      *string           `json:"targetingRule"`
-	Variants           []*VariantRequest `json:"variants" validate:"required,min=1,dive"`
+	FlagID             uuid.UUID          `json:"flagId" validate:"required,uuid"`
+	Name               string             `json:"name" validate:"required,min=5"`
+	Description        *string            `json:"description"`
+	AudiencePercentage int                `json:"audiencePercentage" validate:"required,gt=0,lte=100"`
+	TargetingRule      *string            `json:"targetingRule"`
+	Variants           []*VariantRequest  `json:"variants" validate:"required,min=1,dive"`
+	MetricKeys         []string           `json:"metricKeys,omitempty"`
+	PrimaryMetricKey   *string            `json:"primaryMetricKey,omitempty"`
+	Guardrails         []GuardrailRequest `json:"guardrails,omitempty"`
+}
+
+type GuardrailRequest struct {
+	MetricKey          string  `json:"metricKey" validate:"required"`
+	Threshold          float64 `json:"threshold" validate:"required"`
+	ThresholdDirection string  `json:"thresholdDirection" validate:"required,oneof=upper lower"`
+	WindowSeconds      int     `json:"windowSeconds" validate:"required,gt=0"`
+	Action             string  `json:"action" validate:"required,oneof=pause rollback"`
 }
 
 type ExperimentListFiltersQuery struct {
@@ -35,6 +46,11 @@ type ExperimentListFiltersQuery struct {
 }
 
 type ExperimentReviewRequest struct {
+	Comment string `json:"comment" validate:"required"`
+}
+
+type FinishExperimentRequest struct {
+	Outcome string `json:"outcome" validate:"required,oneof=ROLLOUT ROLLBACK NO_EFFECT"`
 	Comment string `json:"comment" validate:"required"`
 }
 
@@ -71,20 +87,40 @@ type ReviewResponse struct {
 	CreatedAt  string    `json:"createdAt"`
 }
 
+type ExperimentMetricItemResponse struct {
+	MetricKey string `json:"metricKey"`
+	IsPrimary bool   `json:"isPrimary"`
+}
+
+type GuardrailResponse struct {
+	ID                 uuid.UUID `json:"id"`
+	MetricKey          string    `json:"metricKey"`
+	Threshold          float64   `json:"threshold"`
+	ThresholdDirection string    `json:"thresholdDirection"`
+	WindowSeconds      int       `json:"windowSeconds"`
+	Action             string    `json:"action"`
+}
+
 type ExperimentResponse struct {
-	ID                 uuid.UUID          `json:"id"`
-	FlagID             uuid.UUID          `json:"flagId"`
-	Name               string             `json:"name"`
-	Description        *string            `json:"description"`
-	CreatedBy          uuid.UUID          `json:"createdBy"`
-	Status             string             `json:"status"`
-	Version            int                `json:"version"`
-	Reviews            []*ReviewResponse  `json:"reviews"`
-	AudiencePercentage int                `json:"audiencePercentage"`
-	TargetingRule      *string            `json:"targetingRule"`
-	CreatedAt          string             `json:"createdAt"`
-	UpdatedAt          string             `json:"updatedAt"`
-	Variants           []*VariantResponse `json:"variants"`
+	ID                 uuid.UUID                      `json:"id"`
+	FlagID             uuid.UUID                      `json:"flagId"`
+	Name               string                         `json:"name"`
+	Description        *string                        `json:"description"`
+	CreatedBy          uuid.UUID                      `json:"createdBy"`
+	Status             string                         `json:"status"`
+	Version            int                            `json:"version"`
+	Reviews            []*ReviewResponse              `json:"reviews"`
+	AudiencePercentage int                            `json:"audiencePercentage"`
+	TargetingRule      *string                        `json:"targetingRule"`
+	MetricKeys         []string                       `json:"metricKeys,omitempty"`
+	PrimaryMetricKey   *string                        `json:"primaryMetricKey,omitempty"`
+	Metrics            []ExperimentMetricItemResponse `json:"metrics,omitempty"`
+	Guardrails         []GuardrailResponse            `json:"guardrails,omitempty"`
+	Outcome            *string                        `json:"outcome,omitempty"`
+	OutcomeComment     *string                        `json:"outcomeComment,omitempty"`
+	CreatedAt          string                         `json:"createdAt"`
+	UpdatedAt          string                         `json:"updatedAt"`
+	Variants           []*VariantResponse             `json:"variants"`
 }
 
 func ExperimentResponseFromDomain(e *models.Experiment) *ExperimentResponse {
@@ -97,6 +133,44 @@ func ExperimentResponseFromDomain(e *models.Experiment) *ExperimentResponse {
 		reviews[i] = reviewResponseFromDomain(review)
 	}
 
+	var outcome, outcomeComment *string
+	if e.Outcome != nil {
+		s := string(*e.Outcome)
+		outcome = &s
+	}
+	outcomeComment = e.OutcomeComment
+
+	var metrics []ExperimentMetricItemResponse
+	if len(e.Metrics) > 0 {
+		metrics = make([]ExperimentMetricItemResponse, 0, len(e.Metrics))
+		for _, ref := range e.Metrics {
+			if ref.Metric != nil {
+				metrics = append(metrics, ExperimentMetricItemResponse{
+					MetricKey: ref.Metric.Key,
+					IsPrimary: ref.IsPrimary,
+				})
+			}
+		}
+	} else {
+		metrics = make([]ExperimentMetricItemResponse, 0, len(e.MetricKeys))
+		for _, key := range e.MetricKeys {
+			isPrimary := e.PrimaryMetricKey != nil && *e.PrimaryMetricKey == key
+			metrics = append(metrics, ExperimentMetricItemResponse{MetricKey: key, IsPrimary: isPrimary})
+		}
+	}
+
+	guardrails := make([]GuardrailResponse, 0, len(e.Guardrails))
+	for _, g := range e.Guardrails {
+		guardrails = append(guardrails, GuardrailResponse{
+			ID:                 g.ID,
+			MetricKey:          g.MetricKey,
+			Threshold:          g.Threshold,
+			ThresholdDirection: g.ThresholdDirection,
+			WindowSeconds:      g.WindowSeconds,
+			Action:             g.Action,
+		})
+	}
+
 	return &ExperimentResponse{
 		ID:                 e.ID,
 		FlagID:             e.FlagID,
@@ -107,6 +181,12 @@ func ExperimentResponseFromDomain(e *models.Experiment) *ExperimentResponse {
 		Version:            e.Version,
 		AudiencePercentage: e.AudiencePercentage,
 		TargetingRule:      e.TargetingRule,
+		MetricKeys:         e.MetricKeys,
+		PrimaryMetricKey:   e.PrimaryMetricKey,
+		Metrics:            metrics,
+		Guardrails:         guardrails,
+		Outcome:            outcome,
+		OutcomeComment:     outcomeComment,
 		CreatedAt:          e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:          e.UpdatedAt.Format(time.RFC3339),
 		Variants:           variants,

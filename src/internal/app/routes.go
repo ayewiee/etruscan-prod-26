@@ -1,17 +1,63 @@
 package app
 
 import (
+	"encoding/json"
 	"etruscan/internal/api"
 	"etruscan/internal/api/handlers"
 	"etruscan/internal/domain/models"
+	"io/fs"
 	"net/http"
 
+	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
+	"gopkg.in/yaml.v3"
 )
 
 func (app *App) RegisterRoutes() {
+	specRoot, _ := fs.Sub(specFS, "spec")
 	apiv1 := app.Echo.Group("/api/v1")
+	apiv1.GET("/openapi.yaml", func(c echo.Context) error {
+		data, err := fs.ReadFile(specRoot, "openapi.yaml")
+		if err != nil {
+			return err
+		}
+		return c.Blob(http.StatusOK, "application/x-yaml", data)
+	})
+	// /docs — Scalar UI (loads JS from CDN; use when online).
+	app.Echo.GET("/docs", func(c echo.Context) error {
+		data, err := fs.ReadFile(specRoot, "openapi.yaml")
+		if err != nil {
+			return err
+		}
+		var specMap map[string]interface{}
+		if err := yaml.Unmarshal(data, &specMap); err != nil {
+			return err
+		}
+		specJSON, err := json.Marshal(specMap)
+		if err != nil {
+			return err
+		}
+		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
+			SpecContent: string(specJSON),
+			CustomOptions: scalar.CustomOptions{
+				PageTitle: "ETRUSCAN A/B Platform API",
+			},
+			DarkMode: true,
+		})
+		if err != nil {
+			return err
+		}
+		return c.HTMLBlob(http.StatusOK, []byte(htmlContent))
+	})
+	// /docs/offline — self-contained viewer (no CDN); use when no internet.
+	app.Echo.GET("/docs/offline", func(c echo.Context) error {
+		htmlContent, err := offlineDocsHTML(specRoot)
+		if err != nil {
+			return err
+		}
+		return c.HTMLBlob(http.StatusOK, htmlContent)
+	})
 
 	apiv1.GET("/ready", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, echo.Map{
@@ -72,8 +118,19 @@ func (app *App) RegisterRoutes() {
 
 	protected.POST("/experiments/:id/launch", expHdl.Launch)
 	protected.POST("/experiments/:id/pause", expHdl.Pause)
+	protected.POST("/experiments/:id/finish", expHdl.Finish)
 
 	decideHdl := handlers.NewDecideHandler(app.Deps.DecideUseCase)
+	eventsHdl := handlers.NewEventsHandler(app.Deps.EventsUseCase)
 
 	apiv1.POST("/decide", decideHdl.Decide)
+	apiv1.POST("/events", eventsHdl.Ingest)
+
+	metricHdl := handlers.NewMetricHandler(app.Deps.MetricUseCase)
+	protected.GET("/metrics", metricHdl.List)
+	protected.POST("/metrics", metricHdl.Create)
+	protected.GET("/metrics/:id", metricHdl.GetByID)
+
+	reportHdl := handlers.NewReportHandler(app.Deps.ReportUseCase)
+	protected.GET("/experiments/:id/report", reportHdl.GetExperimentReport)
 }

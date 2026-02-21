@@ -115,6 +115,11 @@ type Experiment struct {
 	OutcomeSetAt   *time.Time
 	OutcomeSetBy   *uuid.UUID
 
+	MetricKeys       []string
+	PrimaryMetricKey *string
+	Metrics          []*ExperimentMetricRef
+	Guardrails       []*Guardrail
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

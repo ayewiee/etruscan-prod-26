@@ -42,6 +42,8 @@ type ExperimentRepository interface {
 	ClearExperimentReviews(ctx context.Context, experimentID uuid.UUID) error
 
 	LogExperimentStatusChange(ctx context.Context, expStatusChange *models.ExperimentStatusChange) error
+
+	Finish(ctx context.Context, id uuid.UUID, outcome models.ExperimentOutcome, outcomeComment string, setBy uuid.UUID) (*models.Experiment, error)
 }
 
 type SQLCExperimentRepository struct {
@@ -356,6 +358,21 @@ func (r SQLCExperimentRepository) LogExperimentStatusChange(
 		ToStatus:     dbgen.ExperimentStatus(expStatusChange.To),
 		Comment:      database.ToPgText(expStatusChange.Comment),
 	})
+}
+
+func (r SQLCExperimentRepository) Finish(ctx context.Context, id uuid.UUID, outcome models.ExperimentOutcome, outcomeComment string, setBy uuid.UUID) (*models.Experiment, error) {
+	row, err := r.db.FinishExperiment(ctx, dbgen.FinishExperimentParams{
+		ID:             id,
+		Status:         dbgen.ExperimentStatusFINISHED,
+		Outcome:        database.ToNullExperimentOutcome(&outcome),
+		OutcomeComment: database.ToPgText(&outcomeComment),
+		OutcomeSetBy:   database.ToPgUUID(&setBy),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return experimentRowToDomain(row), nil
 }
 
 func variantRowsToDomain(rows []dbgen.Variant) []*models.Variant {

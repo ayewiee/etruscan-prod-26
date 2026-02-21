@@ -49,17 +49,23 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	flagRepo := repository.NewSQLCFlagRepository(queries)
 	experimentRepo := repository.NewSQLCExperimentRepository(queries)
 	decisionRepo := repository.NewSQLCDecisionRepository(queries)
+	eventRepo := repository.NewSQLCEventRepository(queries)
+	eventTypeRepo := repository.NewSQLCEventTypeRepository(queries)
+	metricRepo := repository.NewSQLCMetricRepository(queries)
+	guardrailRepo := repository.NewSQLCGuardrailRepository(queries, metricRepo)
 
 	activeExpCache := cacherepo.NewRunningExperimentCache(redisClient)
 	ptcptnTracker := cacherepo.NewParticipationTracker(redisClient)
 	flagCache := cacherepo.NewFlagCache(redisClient)
+
+	metricComputer := usecases.NewMetricComputer(decisionRepo, eventRepo, eventTypeRepo)
 
 	deps := Dependencies{
 		AuthUseCase:          usecases.NewAuthUseCase(userRepo, passwordHasher, jwtProvider),
 		UserUseCase:          usecases.NewUserUseCase(userRepo, passwordHasher),
 		ApproverGroupUseCase: usecases.NewApproverGroupUseCase(approverGroupRepo, userRepo),
 		FlagUseCase:          usecases.NewFlagUseCase(flagRepo),
-		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo, userRepo, cfg.DefaultMinApprovals),
+		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo, userRepo, metricRepo, guardrailRepo, cfg.DefaultMinApprovals),
 		DecideUseCase: usecases.NewDecideUseCase(
 			activeExpCache,
 			ptcptnTracker,
@@ -69,7 +75,24 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 			flagRepo,
 			log,
 		),
+		EventsUseCase: usecases.NewEventsUseCase(eventRepo, eventTypeRepo),
+		MetricUseCase: usecases.NewMetricUseCase(metricRepo),
+		ReportUseCase: usecases.NewReportUseCase(
+			experimentRepo,
+			metricRepo,
+			metricComputer,
+		),
 	}
+
+	guardrailRunner := usecases.NewGuardrailRunner(
+		experimentRepo,
+		guardrailRepo,
+		metricRepo,
+		metricComputer,
+		log,
+		cfg.GuardrailCheckIntervalMinutes,
+	)
+	go guardrailRunner.Run(ctx)
 
 	app := &App{
 		Context: ctx,

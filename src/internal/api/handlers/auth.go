@@ -3,6 +3,7 @@ package handlers
 import (
 	"etruscan/internal/api/apierrors"
 	"etruscan/internal/api/dto"
+	"etruscan/internal/domain/models"
 	"etruscan/internal/usecases"
 	"net/http"
 
@@ -20,7 +21,7 @@ func NewAuthHandler(usecase *usecases.AuthUseCase) *AuthHandler {
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req dto.LoginRequest
 	if err := c.Bind(&req); err != nil {
-		return err
+		return models.ErrInvalidJSON
 	}
 	if err := c.Validate(&req); err != nil {
 		return apierrors.ValidationError(err, req)

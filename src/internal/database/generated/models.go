@@ -300,12 +300,13 @@ type Decision struct {
 }
 
 type Event struct {
-	ID           uuid.UUID
-	EventTypeKey string
-	DecisionID   pgtype.UUID
-	UserID       string
-	Properties   []byte
-	Timestamp    pgtype.Timestamptz
+	ID            uuid.UUID
+	EventTypeKey  string
+	DecisionID    pgtype.UUID
+	UserID        string
+	Properties    []byte
+	Timestamp     pgtype.Timestamptz
+	ClientEventID pgtype.Text
 }
 
 type EventType struct {
@@ -390,11 +391,15 @@ type Guardrail struct {
 }
 
 type GuardrailTrigger struct {
-	ID           uuid.UUID
-	GuardrailID  uuid.UUID
-	ExperimentID uuid.UUID
-	MetricValue  float64
-	TriggeredAt  pgtype.Timestamptz
+	ID             uuid.UUID
+	GuardrailID    uuid.UUID
+	ExperimentID   uuid.UUID
+	MetricValue    float64
+	TriggeredAt    pgtype.Timestamptz
+	MetricKey      pgtype.Text
+	ThresholdValue pgtype.Float8
+	WindowSeconds  pgtype.Int4
+	Action         pgtype.Text
 }
 
 type Metric struct {
@@ -406,6 +411,7 @@ type Metric struct {
 	AggregationType MetricAggregationType
 	IsGuardrail     bool
 	CreatedAt       pgtype.Timestamptz
+	Key             string
 }
 
 type User struct {

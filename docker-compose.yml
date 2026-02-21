@@ -17,6 +17,7 @@ services:
       JWT_SECRET: guesswhosbackbackagain
       DEFAULT_MIN_APPROVALS: 2
       PRODUCTION_MODE: false
+      GUARDRAIL_CHECK_INTERVAL_MINUTES: 2
     ports:
       - "8080:8080"
     healthcheck:

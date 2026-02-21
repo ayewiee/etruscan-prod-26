@@ -44,7 +44,7 @@ func parseEntityModification(c echo.Context) (*models.Experiment, error) {
 	var req dto.CreateUpdateExperimentRequest
 
 	if err := c.Bind(&req); err != nil {
-		return nil, err
+		return nil, models.ErrInvalidJSON
 	}
 	if err := c.Validate(&req); err != nil {
 		return nil, apierrors.ValidationError(err, req)
@@ -66,6 +66,20 @@ func parseEntityModification(c echo.Context) (*models.Experiment, error) {
 		}
 	}
 
+	var guardrails []*models.Guardrail
+	if len(req.Guardrails) > 0 {
+		guardrails = make([]*models.Guardrail, len(req.Guardrails))
+		for i, gd := range req.Guardrails {
+			guardrails[i] = &models.Guardrail{
+				MetricKey:          gd.MetricKey,
+				Threshold:          gd.Threshold,
+				ThresholdDirection: gd.ThresholdDirection,
+				WindowSeconds:      gd.WindowSeconds,
+				Action:             gd.Action,
+			}
+		}
+	}
+
 	return &models.Experiment{
 		FlagID:             req.FlagID,
 		Name:               req.Name,
@@ -73,6 +87,9 @@ func parseEntityModification(c echo.Context) (*models.Experiment, error) {
 		AudiencePercentage: req.AudiencePercentage,
 		TargetingRule:      req.TargetingRule,
 		Variants:           variantsDomain,
+		MetricKeys:         req.MetricKeys,
+		PrimaryMetricKey:   req.PrimaryMetricKey,
+		Guardrails:         guardrails,
 	}, nil
 }
 
@@ -118,7 +135,7 @@ func (h *ExperimentHandler) List(c echo.Context) error {
 	var req dto.ExperimentListFiltersQuery
 
 	if err = c.Bind(&req); err != nil {
-		return err
+		return models.ErrInvalidJSON
 	}
 	if err = c.Validate(&req); err != nil {
 		return apierrors.ValidationError(err, req)
@@ -280,4 +297,27 @@ func (h *ExperimentHandler) Pause(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully paused!"})
+}
+
+func (h *ExperimentHandler) Finish(c echo.Context) error {
+	actor, expId, err := h.parseActorAndEntityId(c)
+	if err != nil {
+		return err
+	}
+
+	var req dto.FinishExperimentRequest
+	if err := c.Bind(&req); err != nil {
+		return models.ErrInvalidJSON
+	}
+	if err := c.Validate(&req); err != nil {
+		return apierrors.ValidationError(err, req)
+	}
+
+	outcome := models.ExperimentOutcome(req.Outcome)
+	exp, err := h.usecase.Finish(c.Request().Context(), actor, expId, outcome, req.Comment)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, dto.ExperimentResponseFromDomain(exp))
 }

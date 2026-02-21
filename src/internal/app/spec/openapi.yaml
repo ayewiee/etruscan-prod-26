@@ -1,0 +1,848 @@
+openapi: 3.0.3
+info:
+  title: ETRUSCAN Platform
+  description: |
+    API платформы A/B тестирования.
+    Создавайте эксперименты, проверяйте свои теории и не позволяйте вашему проду упасть благодаря guardrails!
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object }
+
+    UUID:
+      type: string
+      format: uuid
+
+    # --- Auth ---
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user: { $ref: '#/components/schemas/UserResponse' }
+
+    UserResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        email: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [VIEWER, EXPERIMENTER, APPROVER, ADMIN] }
+        minApprovals: { type: integer, nullable: true }
+        approverGroup: { $ref: '#/components/schemas/UUID', nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateUserRequest:
+      type: object
+      required: [username, email, role, password]
+      properties:
+        username: { type: string }
+        email: { type: string, format: email }
+        password: { type: string }
+        role: { type: string, enum: [VIEWER, EXPERIMENTER, APPROVER, ADMIN] }
+        minApprovals: { type: integer, nullable: true }
+        approverGroup: { $ref: '#/components/schemas/UUID', nullable: true }
+
+    # --- Approver groups ---
+    ApproverGroupResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        members: { type: array, items: { $ref: '#/components/schemas/CompactUser' } }
+        createdAt: { type: string, format: date-time }
+    CreateApproverGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string, nullable: true }
+    ApproverGroupMembersRequest:
+      type: object
+      required: [users]
+      properties:
+        users: { type: array, items: { $ref: '#/components/schemas/UUID' } }
+    CompactUser:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        email: { type: string }
+        username: { type: string }
+        role: { type: string }
+
+    # --- Flags ---
+    FlagResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        key: { type: string }
+        description: { type: string, nullable: true }
+        defaultValue: {}
+        valueType: { type: string, enum: [string, number, bool, json] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateFlagRequest:
+      type: object
+      required: [key, valueType, defaultValue]
+      properties:
+        key: { type: string }
+        description: { type: string, nullable: true }
+        defaultValue: {}
+        valueType: { type: string, enum: [string, number, bool, json] }
+
+    # --- Experiments ---
+    ExperimentResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        flagId: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        createdBy: { $ref: '#/components/schemas/UUID' }
+        status: { type: string, enum: [DRAFT, ON_REVIEW, APPROVED, DECLINED, LAUNCHED, PAUSED, FINISHED, ARCHIVED] }
+        version: { type: integer }
+        audiencePercentage: { type: integer }
+        targetingRule: { type: string, nullable: true }
+        metricKeys: { type: array, items: { type: string } }
+        primaryMetricKey: { type: string, nullable: true }
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              metricKey: { type: string }
+              isPrimary: { type: boolean }
+        guardrails:
+          type: array
+          items: { $ref: '#/components/schemas/GuardrailResponse' }
+        outcome: { type: string, enum: [ROLLOUT, ROLLBACK, NO_EFFECT], nullable: true }
+        outcomeComment: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        variants: { type: array, items: { $ref: '#/components/schemas/VariantResponse' } }
+        reviews: { type: array, items: { $ref: '#/components/schemas/ReviewResponse' } }
+    GuardrailResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        metricKey: { type: string }
+        threshold: { type: number }
+        thresholdDirection: { type: string, enum: [upper, lower] }
+        windowSeconds: { type: integer }
+        action: { type: string, enum: [pause, rollback] }
+    VariantResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        value: {}
+        weight: { type: integer }
+        isControl: { type: boolean }
+    ReviewResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        approverId: { $ref: '#/components/schemas/UUID' }
+        decision: { type: string }
+        comment: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    CreateExperimentRequest:
+      type: object
+      required: [flagId, name, audiencePercentage, variants]
+      properties:
+        flagId: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        audiencePercentage: { type: integer, minimum: 1, maximum: 100 }
+        targetingRule: { type: string, nullable: true }
+        variants:
+          type: array
+          items:
+            type: object
+            required: [name, value, weight]
+            properties:
+              name: { type: string }
+              value: {}
+              weight: { type: integer }
+              isControl: { type: boolean, nullable: true }
+        metricKeys: { type: array, items: { type: string } }
+        primaryMetricKey: { type: string, nullable: true }
+        guardrails:
+          type: array
+          items:
+            type: object
+            required: [metricKey, threshold, thresholdDirection, windowSeconds, action]
+            properties:
+              metricKey: { type: string }
+              threshold: { type: number }
+              thresholdDirection: { type: string, enum: [upper, lower] }
+              windowSeconds: { type: integer }
+              action: { type: string, enum: [pause, rollback] }
+    ReviewActionRequest:
+      type: object
+      required: [comment]
+      properties:
+        comment: { type: string }
+    FinishExperimentRequest:
+      type: object
+      required: [outcome, comment]
+      properties:
+        outcome: { type: string, enum: [ROLLOUT, ROLLBACK, NO_EFFECT] }
+        comment: { type: string }
+
+    PaginatedExperiments:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ExperimentResponse' } }
+        total: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+
+    # --- Decide & Events ---
+    DecideRequest:
+      type: object
+      required: [userId, flagKey]
+      properties:
+        userId: { type: string }
+        flagKey: { type: string }
+        context: { type: object }
+    DecideResponse:
+      type: object
+      properties:
+        decisionId: { $ref: '#/components/schemas/UUID' }
+        value: {}
+
+    IngestEventsRequest:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            required: [eventId, eventTypeKey, decisionId, userId, timestamp]
+            properties:
+              eventId: { type: string }
+              eventTypeKey: { type: string }
+              decisionId: { $ref: '#/components/schemas/UUID' }
+              userId: { type: string }
+              timestamp: { type: string, format: date-time }
+              properties: { type: object }
+    IngestEventsResponse:
+      type: object
+      properties:
+        accepted: { type: integer }
+        duplicates: { type: integer }
+        rejected: { type: integer }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              index: { type: integer }
+              message: { type: string }
+
+    # --- Metrics ---
+    MetricResponse:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        key: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        type: { type: string, enum: [binomial, continuous] }
+        eventTypeKey: { type: string }
+        aggregationType: { type: string, enum: [count, sum, avg, p95] }
+        isGuardrail: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CreateMetricRequest:
+      type: object
+      required: [key, name, type, eventTypeKey, aggregationType]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        type: { type: string, enum: [binomial, continuous] }
+        eventTypeKey: { type: string }
+        aggregationType: { type: string, enum: [count, sum, avg, p95] }
+        isGuardrail: { type: boolean, default: false }
+
+    # --- Report ---
+    ExperimentReportResponse:
+      type: object
+      properties:
+        experimentId: { $ref: '#/components/schemas/UUID' }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        variants:
+          type: array
+          items:
+            type: object
+            properties:
+              variantId: { $ref: '#/components/schemas/UUID' }
+              variantName: { type: string }
+              metrics: { type: object, additionalProperties: { type: number } }
+
+paths:
+  /health:
+    get:
+      summary: Liveness
+      tags: [System]
+      responses:
+        '200': { description: OK }
+  /ready:
+    get:
+      summary: Readiness
+      tags: [System]
+      responses:
+        '200': { description: Ready }
+        '503': { description: Not ready }
+
+  /auth/login:
+    post:
+      summary: Login
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+
+  /admin/users:
+    get:
+      summary: List users
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/UserResponse' } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  size: { type: integer }
+    post:
+      summary: Create user
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+
+  /admin/users/{id}:
+    get:
+      summary: Get user
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+    put:
+      summary: Update user
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+    delete:
+      summary: Soft-delete user
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '204': { description: Deleted }
+
+  /admin/approverGroups:
+    post:
+      summary: Create approver group
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateApproverGroupRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApproverGroupResponse' }
+  /admin/approverGroups/{id}:
+    get:
+      summary: Get approver group
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApproverGroupResponse' }
+  /admin/approverGroups/{id}/members/add:
+    post:
+      summary: Add members
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApproverGroupMembersRequest' }
+      responses:
+        '200': { description: OK }
+  /admin/approverGroups/{id}/members/remove:
+    post:
+      summary: Remove members
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApproverGroupMembersRequest' }
+      responses:
+        '200': { description: OK }
+
+  /flags:
+    get:
+      summary: List flags
+      tags: [Flags]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/FlagResponse' } }
+    post:
+      summary: Create flag
+      tags: [Flags]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFlagRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlagResponse' }
+  /flags/{id}:
+    get:
+      summary: Get flag
+      tags: [Flags]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlagResponse' }
+    put:
+      summary: Update flag (defaultValue only)
+      tags: [Flags]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFlagRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlagResponse' }
+    delete:
+      summary: Delete flag
+      tags: [Flags]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '204': { description: Deleted }
+
+  /experiments:
+    get:
+      summary: List experiments
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: flagId
+          in: query
+          schema: { $ref: '#/components/schemas/UUID' }
+        - name: createdBy
+          in: query
+          schema: { $ref: '#/components/schemas/UUID' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, ON_REVIEW, APPROVED, DECLINED, LAUNCHED, PAUSED, FINISHED, ARCHIVED] }
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [ROLLOUT, ROLLBACK, NO_EFFECT] }
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: size
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedExperiments' }
+    post:
+      summary: Create experiment (draft)
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateExperimentRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperimentResponse' }
+
+  /experiments/{id}:
+    get:
+      summary: Get experiment (with metrics and guardrails)
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperimentResponse' }
+    put:
+      summary: Update experiment (draft only)
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateExperimentRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperimentResponse' }
+  /experiments/{id}/sendOnReview:
+    post:
+      summary: Send to review
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200': { description: OK }
+  /experiments/{id}/approve:
+    post:
+      summary: Approve
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewActionRequest' }
+      responses:
+        '200': { description: OK }
+  /experiments/{id}/requestChanges:
+    post:
+      summary: Request changes
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewActionRequest' }
+      responses:
+        '200': { description: OK }
+  /experiments/{id}/decline:
+    post:
+      summary: Decline
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewActionRequest' }
+      responses:
+        '200': { description: OK }
+  /experiments/{id}/statusChanges:
+    get:
+      summary: List status changes
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: array }
+  /experiments/{id}/snapshots:
+    get:
+      summary: List snapshots
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: array }
+  /experiments/{id}/launch:
+    post:
+      summary: Launch
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200': { description: OK }
+  /experiments/{id}/pause:
+    post:
+      summary: Pause
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200': { description: OK }
+  /experiments/{id}/finish:
+    post:
+      summary: Finish (set outcome + comment)
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FinishExperimentRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperimentResponse' }
+  /experiments/{id}/report:
+    get:
+      summary: Get report (metrics by variant)
+      tags: [Experiments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperimentReportResponse' }
+
+  /decide:
+    post:
+      summary: Get flag value for user (runtime)
+      tags: [Runtime]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecideRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecideResponse' }
+  /events:
+    post:
+      summary: Ingest events (batch)
+      tags: [Runtime]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IngestEventsRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestEventsResponse' }
+
+  /metrics:
+    get:
+      summary: List metrics
+      tags: [Metrics]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/MetricResponse' } }
+    post:
+      summary: Create metric
+      tags: [Metrics]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMetricRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricResponse' }
+  /metrics/{id}:
+    get:
+      summary: Get metric
+      tags: [Metrics]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricResponse' }

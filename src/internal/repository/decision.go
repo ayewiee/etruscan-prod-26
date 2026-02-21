@@ -6,13 +6,16 @@ import (
 	"etruscan/internal/database"
 	dbgen "etruscan/internal/database/generated"
 	"etruscan/internal/domain/models"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type DecisionRepository interface {
 	Create(ctx context.Context, decision *models.Decision) (uuid.UUID, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Decision, error)
+	ListDecisionIDsByExperimentVariantWindow(ctx context.Context, experimentID uuid.UUID, variantID *uuid.UUID, from, to time.Time) ([]uuid.UUID, error)
 }
 
 type SQLCDecisionRepository struct {
@@ -71,4 +74,21 @@ func (r *SQLCDecisionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		Context:      contextMap,
 		CreatedAt:    row.CreatedAt.Time,
 	}, nil
+}
+
+func (r *SQLCDecisionRepository) ListDecisionIDsByExperimentVariantWindow(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	variantID *uuid.UUID,
+	from, to time.Time,
+) ([]uuid.UUID, error) {
+	fromPg := pgtype.Timestamptz{Time: from, Valid: true}
+	toPg := pgtype.Timestamptz{Time: to, Valid: true}
+
+	return r.db.ListDecisionIDsByExperimentVariantWindow(ctx, dbgen.ListDecisionIDsByExperimentVariantWindowParams{
+		ExperimentID: database.ToPgUUID(&experimentID),
+		CreatedAt:    fromPg,
+		CreatedAt_2:  toPg,
+		VariantID:    database.ToPgUUID(variantID),
+	})
 }
