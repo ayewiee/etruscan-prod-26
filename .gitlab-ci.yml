@@ -13,9 +13,8 @@ unit:
     - cd src
     - go install gotest.tools/gotestsum@latest
   script:
-    - cd src && make ci-unit
+    - make ci-unit
   artifacts:
-    when: always
     paths:
       - src/junit-unit.xml
     reports:
@@ -35,11 +34,10 @@ e2e:
     - go install gotest.tools/gotestsum@latest
     - go install github.com/boumenot/gocover-cobertura@latest
   script:
-    - cd src && make ci-e2e
-    - cd src && make cobertura
+    - make ci-e2e
+    - make cobertura
   coverage: '/total:.*\s+(\d+\.\d+)%/'
   artifacts:
-    when: always
     paths:
       - src/junit-e2e.xml
       - src/coverage.out
