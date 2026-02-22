@@ -10,6 +10,6 @@ type ApproverGroup struct {
 	ID          uuid.UUID
 	Name        string
 	Description *string
-	Members     []User
+	Members     []*User
 	CreatedAt   time.Time
 }

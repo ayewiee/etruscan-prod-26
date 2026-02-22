@@ -66,6 +66,19 @@ func (uc *ExperimentUseCase) Review(
 		return err
 	}
 
+	expOwner, err := uc.userRepo.GetById(ctx, dbExperiment.CreatedBy)
+	if err != nil {
+		return err
+	}
+
+	ok, err := uc.userCanApproveExperimentsOfThisUser(ctx, inp.Actor, expOwner)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return models.ErrForbidden
+	}
+
 	if !dbExperiment.Status.ApprovalAllowed() {
 		return models.NewErrForbidden(fmt.Sprintf(
 			"Experiment with status %s cannot be reviewed",
@@ -83,6 +96,33 @@ func (uc *ExperimentUseCase) Review(
 	default:
 		return errors.New("illegal experiment review action")
 	}
+}
+
+func (uc *ExperimentUseCase) userCanApproveExperimentsOfThisUser(
+	ctx context.Context,
+	actor models.UserAuthData,
+	expOwner *models.User,
+) (bool, error) {
+	if actor.Role == models.UserRoleAdmin {
+		return true, nil
+	}
+	// if there's no approver group assigned, only admins can approve
+	if expOwner.ApproverGroup == nil {
+		return false, nil
+	}
+
+	expOwnerApproverGroup, err := uc.approverGroupRepo.GetByID(ctx, *expOwner.ApproverGroup)
+	if err != nil {
+		return false, err
+	}
+
+	for _, member := range expOwnerApproverGroup.Members {
+		if member.ID == actor.ID {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (uc *ExperimentUseCase) approveExperiment(

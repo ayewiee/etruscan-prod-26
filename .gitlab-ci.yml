@@ -1,0 +1,51 @@
+default:
+  image: golang:1.24-bookworm
+
+stages:
+  - test
+
+variables:
+  GOFLAGS: "-mod=readonly"
+
+unit:
+  stage: test
+  before_script:
+    - cd src
+    - go install gotest.tools/gotestsum@latest
+  script:
+    - cd src && make ci-unit
+  artifacts:
+    when: always
+    paths:
+      - src/junit-unit.xml
+    reports:
+      junit: src/junit-unit.xml
+
+e2e:
+  stage: test
+  image: golang:1.24-bookworm
+  services:
+    - docker:24-dind # docker in docker for tests
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+  before_script:
+    - apt-get update -y && apt-get install -y docker.io
+    - cd src
+    - go install gotest.tools/gotestsum@latest
+    - go install github.com/boumenot/gocover-cobertura@latest
+  script:
+    - cd src && make ci-e2e
+    - cd src && make cobertura
+  coverage: '/total:.*\s+(\d+\.\d+)%/'
+  artifacts:
+    when: always
+    paths:
+      - src/junit-e2e.xml
+      - src/coverage.out
+      - src/cobertura.xml
+    reports:
+      junit: src/junit-e2e.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: src/cobertura.xml

@@ -54,7 +54,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	metricRepo := repository.NewSQLCMetricRepository(queries)
 	guardrailRepo := repository.NewSQLCGuardrailRepository(queries, metricRepo)
 
-	activeExpCache := cacherepo.NewRunningExperimentCache(redisClient)
+	runningExpCache := cacherepo.NewRunningExperimentCache(redisClient)
 	ptcptnTracker := cacherepo.NewParticipationTracker(redisClient)
 	flagCache := cacherepo.NewFlagCache(redisClient)
 
@@ -65,9 +65,18 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 		UserUseCase:          usecases.NewUserUseCase(userRepo, passwordHasher),
 		ApproverGroupUseCase: usecases.NewApproverGroupUseCase(approverGroupRepo, userRepo),
 		FlagUseCase:          usecases.NewFlagUseCase(flagRepo),
-		ExperimentUseCase:    usecases.NewExperimentUseCase(experimentRepo, flagRepo, userRepo, metricRepo, guardrailRepo, cfg.DefaultMinApprovals),
+		ExperimentUseCase: usecases.NewExperimentUseCase(
+			experimentRepo,
+			flagRepo,
+			userRepo,
+			approverGroupRepo,
+			metricRepo,
+			guardrailRepo,
+			runningExpCache,
+			cfg.DefaultMinApprovals,
+		),
 		DecideUseCase: usecases.NewDecideUseCase(
-			activeExpCache,
+			runningExpCache,
 			ptcptnTracker,
 			flagCache,
 			decisionRepo,
@@ -95,12 +104,13 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	go guardrailRunner.Run(ctx)
 
 	app := &App{
-		Context: ctx,
-		Echo:    NewServer(log),
-		Config:  &cfg,
-		DB:      queries,
-		DBPool:  dbPool,
-		Deps:    &deps,
+		Context:     ctx,
+		Echo:        NewServer(log),
+		Config:      &cfg,
+		DB:          queries,
+		DBPool:      dbPool,
+		RedisClient: redisClient,
+		Deps:        &deps,
 	}
 
 	app.RegisterRoutes()

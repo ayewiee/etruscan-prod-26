@@ -42,14 +42,14 @@ func (r SQLCApproverGroupRepository) Create(
 	return approverGroupRowToDomain(row), nil
 }
 
-func (r SQLCApproverGroupRepository) GetMembers(ctx context.Context, id uuid.UUID) ([]models.User, error) {
+func (r SQLCApproverGroupRepository) GetMembers(ctx context.Context, id uuid.UUID) ([]*models.User, error) {
 	rows, err := r.db.GetApproverGroupMembers(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	users := make([]models.User, len(rows))
+	users := make([]*models.User, len(rows))
 	for i, row := range rows {
-		users[i] = models.User{
+		users[i] = &models.User{
 			ID:       row.ID,
 			Email:    row.Email,
 			Username: row.Username,

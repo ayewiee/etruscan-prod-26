@@ -8,6 +8,7 @@ import (
 	"etruscan/internal/domain"
 	"etruscan/internal/domain/models"
 	"etruscan/internal/repository"
+	"etruscan/internal/repository/cache"
 	"fmt"
 
 	"github.com/labstack/echo/v4"
@@ -17,8 +18,10 @@ type ExperimentUseCase struct {
 	repo                repository.ExperimentRepository
 	flagRepo            repository.FlagRepository
 	userRepo            repository.UserRepository
+	approverGroupRepo   repository.ApproverGroupRepository
 	metricRepo          repository.MetricRepository
 	guardrailRepo       repository.GuardrailRepository
+	runningExpCache     *cache.RunningExperimentCache
 	defaultMinApprovals int
 }
 
@@ -26,16 +29,20 @@ func NewExperimentUseCase(
 	repo repository.ExperimentRepository,
 	flagRepo repository.FlagRepository,
 	userRepo repository.UserRepository,
+	approverGroupRepo repository.ApproverGroupRepository,
 	metricRepo repository.MetricRepository,
 	guardrailRepo repository.GuardrailRepository,
+	runningExpCache *cache.RunningExperimentCache,
 	defaultMinApprovals int,
 ) *ExperimentUseCase {
 	return &ExperimentUseCase{
 		repo:                repo,
 		flagRepo:            flagRepo,
 		userRepo:            userRepo,
+		approverGroupRepo:   approverGroupRepo,
 		metricRepo:          metricRepo,
 		guardrailRepo:       guardrailRepo,
+		runningExpCache:     runningExpCache,
 		defaultMinApprovals: defaultMinApprovals,
 	}
 }

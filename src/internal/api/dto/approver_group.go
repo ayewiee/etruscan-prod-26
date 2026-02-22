@@ -27,7 +27,7 @@ type ApproverGroupResponse struct {
 func ApproverGroupResponseFromDomain(ag *models.ApproverGroup) *ApproverGroupResponse {
 	memberDTOs := make([]CompactUserDTO, len(ag.Members))
 	for i, m := range ag.Members {
-		memberDTOs[i] = CompactUserDTOFromDomain(&m)
+		memberDTOs[i] = CompactUserDTOFromDomain(m)
 	}
 
 	return &ApproverGroupResponse{
