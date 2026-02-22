@@ -47,10 +47,10 @@ ci-unit:
 	@which gotestsum >/dev/null || (echo "install gotestsum: go install gotest.tools/gotestsum@latest" && exit 1)
 	gotestsum --junitfile junit-unit.xml -- -short -count=1 $$(go list ./... | grep -v '/tests/e2e$$')
 
-# E2E tests + JUnit + coverage. Writes junit-e2e.xml and coverage.out (e2e coverage).
+# E2E tests + JUnit + coverage. -coverpkg=./... includes app code (handlers, usecases) in profile.
 ci-e2e:
 	@which gotestsum >/dev/null || (echo "install gotestsum: go install gotest.tools/gotestsum@latest" && exit 1)
-	gotestsum --junitfile junit-e2e.xml -- -count=1 -timeout 10m -coverprofile=coverage.out -covermode=atomic ./tests/e2e/...
+	gotestsum --junitfile junit-e2e.xml -- -count=1 -timeout 10m -coverprofile=coverage.out -covermode=atomic -coverpkg=./... ./tests/e2e/...
 	@go tool cover -func=coverage.out | tail -1
 
 # Cobertura XML from coverage.out (for GitLab coverage MR widget). Run after coverage or ci-e2e.

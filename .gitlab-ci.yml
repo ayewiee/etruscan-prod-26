@@ -37,6 +37,8 @@ e2e:
   script:
     - make ci-e2e
     - make cobertura
+    # GitLab expects paths relative to repo root; Go uses module path (etruscan/...)
+    - sed -i 's|etruscan/|src/|g' cobertura.xml
   coverage: '/total:.*\s+(\d+\.\d+)%/'
   artifacts:
     paths:
