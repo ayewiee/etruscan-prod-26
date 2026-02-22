@@ -132,7 +132,7 @@ func (uc *ExperimentUseCase) Finish(ctx context.Context, actor models.UserAuthDa
 		))
 	}
 
-	exp, err := uc.repo.Finish(ctx, expID, outcome, comment, actor.ID)
+	exp, err := uc.repo.Finish(ctx, expID, outcome, comment, &actor.ID)
 	if err != nil {
 		return nil, err
 	}

@@ -120,11 +120,16 @@ func (app *App) RegisterRoutes() {
 	protected.POST("/experiments/:id/pause", expHdl.Pause)
 	protected.POST("/experiments/:id/finish", expHdl.Finish)
 
+	eventTypeHdl := handlers.NewEventTypeHandler(app.Deps.EventTypeUseCase)
+
+	protected.POST("/events/types", eventTypeHdl.Create)
+	protected.GET("/events/types", eventTypeHdl.List)
+
 	decideHdl := handlers.NewDecideHandler(app.Deps.DecideUseCase)
-	eventsHdl := handlers.NewEventsHandler(app.Deps.EventsUseCase)
+	eventsHdl := handlers.NewEventsHandler(app.Deps.EventUseCase)
 
 	apiv1.POST("/decide", decideHdl.Decide)
-	apiv1.POST("/events", eventsHdl.Ingest)
+	apiv1.POST("/track", eventsHdl.BatchTrack)
 
 	metricHdl := handlers.NewMetricHandler(app.Deps.MetricUseCase)
 	protected.GET("/metrics", metricHdl.List)

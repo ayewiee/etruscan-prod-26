@@ -75,13 +75,13 @@ func (r *SQLCEventRepository) ListByDecisionIDsAndWindow(
 
 	out := make([]*models.Event, len(rows))
 	for i := range rows {
-		out[i] = eventFromDB(rows[i])
+		out[i] = eventRowToDomain(rows[i])
 	}
 
 	return out, nil
 }
 
-func eventFromDB(row dbgen.Event) *models.Event {
+func eventRowToDomain(row dbgen.Event) *models.Event {
 	ev := &models.Event{
 		ID:            row.ID,
 		EventTypeKey:  row.EventTypeKey,

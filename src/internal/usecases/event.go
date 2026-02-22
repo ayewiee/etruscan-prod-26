@@ -11,16 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type EventsUseCase struct {
+type EventUseCase struct {
 	eventRepo     repository.EventRepository
 	eventTypeRepo repository.EventTypeRepository
 }
 
-func NewEventsUseCase(eventRepo repository.EventRepository, eventTypeRepo repository.EventTypeRepository) *EventsUseCase {
-	return &EventsUseCase{eventRepo: eventRepo, eventTypeRepo: eventTypeRepo}
+func NewEventsUseCase(eventRepo repository.EventRepository, eventTypeRepo repository.EventTypeRepository) *EventUseCase {
+	return &EventUseCase{eventRepo: eventRepo, eventTypeRepo: eventTypeRepo}
 }
 
-func (uc *EventsUseCase) Ingest(ctx context.Context, items []models.BatchEventItem) (*models.BatchEventsResult, error) {
+func (uc *EventUseCase) BatchTrack(ctx context.Context, items []models.BatchEventItem) (*models.BatchEventsResult, error) {
 	result := &models.BatchEventsResult{Errors: make([]models.BatchEventErr, 0)}
 
 	for i, item := range items {

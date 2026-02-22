@@ -114,7 +114,18 @@ func (r *GuardrailRunner) evaluateExperiment(ctx context.Context, experimentID u
 			continue
 		}
 
-		_ = r.experimentRepo.UpdateStatus(ctx, experimentID, models.ExperimentStatusPaused)
+		switch g.Action {
+		case "pause":
+			_ = r.experimentRepo.UpdateStatus(ctx, experimentID, models.ExperimentStatusPaused)
+		case "rollback":
+			_, _ = r.experimentRepo.Finish(
+				ctx,
+				experimentID,
+				models.ExperimentOutcomeRollback,
+				"Guardrail with id "+g.ID.String()+" triggered",
+				nil, // system -> nil
+			)
+		}
 
 		_, err = r.guardrailRepo.CreateTrigger(ctx, g.ID, experimentID, val, g.MetricKey, g.Threshold, g.WindowSeconds, g.Action)
 		if err != nil {

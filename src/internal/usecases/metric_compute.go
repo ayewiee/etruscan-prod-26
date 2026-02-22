@@ -16,23 +16,73 @@ type MetricComputer struct {
 	decisionRepo  repository.DecisionRepository
 	eventRepo     repository.EventRepository
 	eventTypeRepo repository.EventTypeRepository
+	metricRepo    repository.MetricRepository
 }
 
 func NewMetricComputer(
 	decisionRepo repository.DecisionRepository,
 	eventRepo repository.EventRepository,
 	eventTypeRepo repository.EventTypeRepository,
+	metricRepo repository.MetricRepository,
 ) *MetricComputer {
 	return &MetricComputer{
 		decisionRepo:  decisionRepo,
 		eventRepo:     eventRepo,
 		eventTypeRepo: eventTypeRepo,
+		metricRepo:    metricRepo,
 	}
 }
 
 // Compute returns the metric value for the given experiment (and optional variant) in [from, to).
 // variantID nil = all variants (experiment-level).
 func (c *MetricComputer) Compute(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	variantID *uuid.UUID,
+	metric *models.Metric,
+	from, to time.Time,
+) (float64, error) {
+	if metric.IsDerived() {
+		return c.computeDerived(ctx, experimentID, variantID, metric, from, to)
+	}
+	return c.computePrimitive(ctx, experimentID, variantID, metric, from, to)
+}
+
+func (c *MetricComputer) computeDerived(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	variantID *uuid.UUID,
+	metric *models.Metric,
+	from, to time.Time,
+) (float64, error) {
+	numMetric, err := c.metricRepo.GetByKey(ctx, *metric.NumeratorMetricKey)
+	if err != nil {
+		return 0, err
+	}
+
+	denMetric, err := c.metricRepo.GetByKey(ctx, *metric.DenominatorMetricKey)
+	if err != nil {
+		return 0, err
+	}
+
+	num, err := c.Compute(ctx, experimentID, variantID, numMetric, from, to)
+	if err != nil {
+		return 0, err
+	}
+
+	den, err := c.Compute(ctx, experimentID, variantID, denMetric, from, to)
+	if err != nil {
+		return 0, err
+	}
+
+	if den == 0 {
+		return 0, nil
+	}
+
+	return num / den, nil
+}
+
+func (c *MetricComputer) computePrimitive(
 	ctx context.Context,
 	experimentID uuid.UUID,
 	variantID *uuid.UUID,
@@ -59,8 +109,8 @@ func (c *MetricComputer) Compute(
 
 	// if event type requires another (e.g. exposure), only count events whose decision_id has that type
 	var exposureDecisionIDs map[uuid.UUID]struct{}
-	if eventType.Requires != nil {
-		requiredType, err := c.eventTypeRepo.GetByID(ctx, *eventType.Requires)
+	if eventType.RequiresID != nil {
+		requiredType, err := c.eventTypeRepo.GetByID(ctx, *eventType.RequiresID)
 		if err != nil {
 			return 0, err
 		}

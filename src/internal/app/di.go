@@ -11,7 +11,8 @@ type Dependencies struct {
 	FlagUseCase          *usecases.FlagUseCase
 	ExperimentUseCase    *usecases.ExperimentUseCase
 	DecideUseCase        *usecases.DecideUseCase
-	EventsUseCase        *usecases.EventsUseCase
+	EventUseCase         *usecases.EventUseCase
+	EventTypeUseCase     *usecases.EventTypeUseCase
 	MetricUseCase        *usecases.MetricUseCase
 	ReportUseCase        *usecases.ReportUseCase
 }

@@ -186,11 +186,11 @@ func SendExposureEvent(t *testing.T, client *http.Client, baseURL, decisionID, u
 			},
 		},
 	}
-	resp, err := PostJSON(client, baseURL+"/events", body)
+	resp, err := PostJSON(client, baseURL+"/track", body)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	bodyBytes, _ := io.ReadAll(resp.Body)
-	require.Equal(t, http.StatusOK, resp.StatusCode, "POST /events exposure: %s", string(bodyBytes))
+	require.Equal(t, http.StatusOK, resp.StatusCode, "POST /track exposure: %s", string(bodyBytes))
 }
 
 func SendConversionEvent(t *testing.T, client *http.Client, baseURL, decisionID, userID string) {
@@ -205,11 +205,11 @@ func SendConversionEvent(t *testing.T, client *http.Client, baseURL, decisionID,
 			},
 		},
 	}
-	resp, err := PostJSON(client, baseURL+"/events", body)
+	resp, err := PostJSON(client, baseURL+"/track", body)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	bodyBytes, _ := io.ReadAll(resp.Body)
-	require.Equal(t, http.StatusOK, resp.StatusCode, "POST /events conversion: %s", string(bodyBytes))
+	require.Equal(t, http.StatusOK, resp.StatusCode, "POST /track conversion: %s", string(bodyBytes))
 }
 
 type ReportResult struct {

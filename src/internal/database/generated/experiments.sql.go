@@ -272,7 +272,7 @@ func (q *Queries) GetExperimentByID(ctx context.Context, id uuid.UUID) (Experime
 const getExperimentSnapshots = `-- name: GetExperimentSnapshots :many
 SELECT id, experiment_id, version, data, created_at FROM experiment_snapshots
 WHERE experiment_id = $1
-ORDER BY version ASC
+ORDER BY version DESC
 `
 
 func (q *Queries) GetExperimentSnapshots(ctx context.Context, experimentID uuid.UUID) ([]ExperimentSnapshot, error) {

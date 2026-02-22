@@ -28,7 +28,37 @@ func (h *MetricHandler) Create(c echo.Context) error {
 		return apierrors.ValidationError(err, req)
 	}
 
-	created, err := h.usecase.Create(c.Request().Context(), &models.Metric{
+	// Either primitive (eventTypeKey + aggregationType) or derived (numeratorMetricKey + denominatorMetricKey)
+	isDerived := req.NumeratorMetricKey != nil && *req.NumeratorMetricKey != "" &&
+		req.DenominatorMetricKey != nil && *req.DenominatorMetricKey != ""
+	if isDerived {
+		if req.EventTypeKey != "" || req.AggregationType != "" {
+			return apierrors.MultipleDumbValidationErrors(
+				models.FieldError{Field: "eventTypeKey", Issue: "must be omitted for derived (ratio) metrics", RejectedValue: req.EventTypeKey},
+				models.FieldError{Field: "aggregationType", Issue: "must be omitted for derived (ratio) metrics", RejectedValue: req.AggregationType},
+			)
+		}
+	} else {
+		if req.EventTypeKey == "" || req.AggregationType == "" {
+			var errs []models.FieldError
+			if req.EventTypeKey == "" {
+				errs = append(errs, models.FieldError{Field: "eventTypeKey", Issue: "required for primitive metrics", RejectedValue: req.EventTypeKey})
+			}
+			if req.AggregationType == "" {
+				errs = append(errs, models.FieldError{Field: "aggregationType", Issue: "required for primitive metrics", RejectedValue: req.AggregationType})
+			}
+			return apierrors.MultipleDumbValidationErrors(errs...)
+		}
+		if (req.NumeratorMetricKey != nil && *req.NumeratorMetricKey != "") ||
+			(req.DenominatorMetricKey != nil && *req.DenominatorMetricKey != "") {
+			return apierrors.MultipleDumbValidationErrors(
+				models.FieldError{Field: "numeratorMetricKey", Issue: "must be omitted for primitive metrics", RejectedValue: req.NumeratorMetricKey},
+				models.FieldError{Field: "denominatorMetricKey", Issue: "must be omitted for primitive metrics", RejectedValue: req.DenominatorMetricKey},
+			)
+		}
+	}
+
+	m := &models.Metric{
 		Key:             req.Key,
 		Name:            req.Name,
 		Description:     req.Description,
@@ -36,7 +66,13 @@ func (h *MetricHandler) Create(c echo.Context) error {
 		EventTypeKey:    req.EventTypeKey,
 		AggregationType: models.MetricAggregationType(req.AggregationType),
 		IsGuardrail:     req.IsGuardrail,
-	})
+	}
+	if isDerived {
+		m.NumeratorMetricKey = req.NumeratorMetricKey
+		m.DenominatorMetricKey = req.DenominatorMetricKey
+	}
+
+	created, err := h.usecase.Create(c.Request().Context(), m)
 	if err != nil {
 		return err
 	}

@@ -43,7 +43,7 @@ type ExperimentRepository interface {
 
 	LogExperimentStatusChange(ctx context.Context, expStatusChange *models.ExperimentStatusChange) error
 
-	Finish(ctx context.Context, id uuid.UUID, outcome models.ExperimentOutcome, outcomeComment string, setBy uuid.UUID) (*models.Experiment, error)
+	Finish(ctx context.Context, id uuid.UUID, outcome models.ExperimentOutcome, outcomeComment string, setBy *uuid.UUID) (*models.Experiment, error)
 }
 
 type SQLCExperimentRepository struct {
@@ -278,27 +278,6 @@ func (r SQLCExperimentRepository) DeleteVariantsByExperimentID(ctx context.Conte
 	return r.db.DeleteVariantsByExperiment(ctx, experimentID)
 }
 
-func experimentRowToDomain(experiment dbgen.Experiment) *models.Experiment {
-	return &models.Experiment{
-		ID:                 experiment.ID,
-		FlagID:             experiment.FlagID,
-		Name:               experiment.Name,
-		Description:        database.FromPgText(experiment.Description),
-		CreatedBy:          experiment.CreatedBy,
-		Status:             models.ExperimentStatus(experiment.Status),
-		Version:            int(experiment.Version),
-		AudiencePercentage: int(experiment.AudiencePct),
-		TargetingRule:      database.FromPgText(experiment.TargetingRule),
-		Outcome:            database.FromNullExperimentOutcome(experiment.Outcome),
-		OutcomeComment:     database.FromPgText(experiment.OutcomeComment),
-		OutcomeSetAt:       database.FromPgTimestamptz(experiment.OutcomeSetAt), // 'cause it's nullable
-		OutcomeSetBy:       database.FromPgUUID(experiment.OutcomeSetBy),
-		CreatedAt:          experiment.CreatedAt.Time,
-		UpdatedAt:          experiment.UpdatedAt.Time,
-		Variants:           nil,
-	}
-}
-
 func (r SQLCExperimentRepository) CreateExperimentReview(
 	ctx context.Context,
 	review *models.ExperimentReview,
@@ -360,19 +339,40 @@ func (r SQLCExperimentRepository) LogExperimentStatusChange(
 	})
 }
 
-func (r SQLCExperimentRepository) Finish(ctx context.Context, id uuid.UUID, outcome models.ExperimentOutcome, outcomeComment string, setBy uuid.UUID) (*models.Experiment, error) {
+func (r SQLCExperimentRepository) Finish(ctx context.Context, id uuid.UUID, outcome models.ExperimentOutcome, outcomeComment string, setBy *uuid.UUID) (*models.Experiment, error) {
 	row, err := r.db.FinishExperiment(ctx, dbgen.FinishExperimentParams{
 		ID:             id,
 		Status:         dbgen.ExperimentStatusFINISHED,
 		Outcome:        database.ToNullExperimentOutcome(&outcome),
 		OutcomeComment: database.ToPgText(&outcomeComment),
-		OutcomeSetBy:   database.ToPgUUID(&setBy),
+		OutcomeSetBy:   database.ToPgUUID(setBy),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return experimentRowToDomain(row), nil
+}
+
+func experimentRowToDomain(experiment dbgen.Experiment) *models.Experiment {
+	return &models.Experiment{
+		ID:                 experiment.ID,
+		FlagID:             experiment.FlagID,
+		Name:               experiment.Name,
+		Description:        database.FromPgText(experiment.Description),
+		CreatedBy:          experiment.CreatedBy,
+		Status:             models.ExperimentStatus(experiment.Status),
+		Version:            int(experiment.Version),
+		AudiencePercentage: int(experiment.AudiencePct),
+		TargetingRule:      database.FromPgText(experiment.TargetingRule),
+		Outcome:            database.FromNullExperimentOutcome(experiment.Outcome),
+		OutcomeComment:     database.FromPgText(experiment.OutcomeComment),
+		OutcomeSetAt:       database.FromPgTimestamptz(experiment.OutcomeSetAt), // 'cause it's nullable
+		OutcomeSetBy:       database.FromPgUUID(experiment.OutcomeSetBy),
+		CreatedAt:          experiment.CreatedAt.Time,
+		UpdatedAt:          experiment.UpdatedAt.Time,
+		Variants:           nil,
+	}
 }
 
 func variantRowsToDomain(rows []dbgen.Variant) []*models.Variant {

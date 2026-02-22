@@ -19,6 +19,10 @@ func (r UserRole) CanManageFlags() bool {
 	return r == UserRoleExperimenter || r == UserRoleAdmin
 }
 
+func (r UserRole) CanManageEventTypes() bool {
+	return r == UserRoleExperimenter || r == UserRoleAdmin
+}
+
 func (r UserRole) CanManageExperiments() bool {
 	return r == UserRoleExperimenter || r == UserRoleAdmin
 }

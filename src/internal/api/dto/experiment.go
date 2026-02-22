@@ -25,7 +25,7 @@ type CreateUpdateExperimentRequest struct {
 	Variants           []*VariantRequest  `json:"variants" validate:"required,min=1,dive"`
 	MetricKeys         []string           `json:"metricKeys,omitempty"`
 	PrimaryMetricKey   *string            `json:"primaryMetricKey,omitempty"`
-	Guardrails         []GuardrailRequest `json:"guardrails,omitempty"`
+	Guardrails         []GuardrailRequest `json:"guardrails,omitempty" validate:"omitempty,min=1,dive"`
 }
 
 type GuardrailRequest struct {

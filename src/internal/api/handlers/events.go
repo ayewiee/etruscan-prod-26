@@ -11,14 +11,14 @@ import (
 )
 
 type EventsHandler struct {
-	usecase *usecases.EventsUseCase
+	usecase *usecases.EventUseCase
 }
 
-func NewEventsHandler(usecase *usecases.EventsUseCase) *EventsHandler {
+func NewEventsHandler(usecase *usecases.EventUseCase) *EventsHandler {
 	return &EventsHandler{usecase: usecase}
 }
 
-func (h *EventsHandler) Ingest(c echo.Context) error {
+func (h *EventsHandler) BatchTrack(c echo.Context) error {
 	var req dto.BatchEventsRequest
 	if err := c.Bind(&req); err != nil {
 		return models.ErrInvalidJSON
@@ -32,7 +32,7 @@ func (h *EventsHandler) Ingest(c echo.Context) error {
 		items[i] = req.Events[i].ToDomain()
 	}
 
-	result, err := h.usecase.Ingest(c.Request().Context(), items)
+	result, err := h.usecase.BatchTrack(c.Request().Context(), items)
 	if err != nil {
 		return err
 	}

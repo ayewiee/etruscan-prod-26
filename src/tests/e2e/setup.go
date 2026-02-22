@@ -106,5 +106,6 @@ func StartAPI(t *testing.T, ctx context.Context, connStr, redisAddr string) *app
 	if err != nil {
 		t.Fatalf("NewApiApp: %v", err)
 	}
+
 	return appInstance
 }

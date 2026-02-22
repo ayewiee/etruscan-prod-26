@@ -11,8 +11,9 @@ type EventType struct {
 	Key         string
 	Name        string
 	Description *string
-	Requires    *uuid.UUID // FK to another event_type (e.g. exposure) for attribution
-	CreatedAt   *time.Time
+	RequiresID  *uuid.UUID // FK to another event_type (e.g. exposure) for attribution
+	RequiresKey *string
+	CreatedAt   time.Time
 }
 
 type Event struct {

@@ -9,14 +9,29 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getEventTypeByID = `-- name: GetEventTypeByID :one
-SELECT id, key, name, description, requires, created_at FROM event_types WHERE id = $1
+const createEventType = `-- name: CreateEventType :one
+INSERT INTO event_types (key, name, description, requires)
+VALUES ($1, $2, $3, $4)
+RETURNING id, key, name, description, requires, created_at
 `
 
-func (q *Queries) GetEventTypeByID(ctx context.Context, id uuid.UUID) (EventType, error) {
-	row := q.db.QueryRow(ctx, getEventTypeByID, id)
+type CreateEventTypeParams struct {
+	Key         string
+	Name        string
+	Description pgtype.Text
+	Requires    pgtype.UUID
+}
+
+func (q *Queries) CreateEventType(ctx context.Context, arg CreateEventTypeParams) (EventType, error) {
+	row := q.db.QueryRow(ctx, createEventType,
+		arg.Key,
+		arg.Name,
+		arg.Description,
+		arg.Requires,
+	)
 	var i EventType
 	err := row.Scan(
 		&i.ID,
@@ -25,17 +40,62 @@ func (q *Queries) GetEventTypeByID(ctx context.Context, id uuid.UUID) (EventType
 		&i.Description,
 		&i.Requires,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getEventTypeByID = `-- name: GetEventTypeByID :one
+SELECT et.id, et.key, et.name, et.description, et.requires, et.created_at, et2.key AS requires_key
+FROM event_types et
+LEFT JOIN event_types et2 ON et.requires = et2.id
+WHERE et.id = $1
+`
+
+type GetEventTypeByIDRow struct {
+	ID          uuid.UUID
+	Key         string
+	Name        string
+	Description pgtype.Text
+	Requires    pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+	RequiresKey pgtype.Text
+}
+
+func (q *Queries) GetEventTypeByID(ctx context.Context, id uuid.UUID) (GetEventTypeByIDRow, error) {
+	row := q.db.QueryRow(ctx, getEventTypeByID, id)
+	var i GetEventTypeByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Key,
+		&i.Name,
+		&i.Description,
+		&i.Requires,
+		&i.CreatedAt,
+		&i.RequiresKey,
 	)
 	return i, err
 }
 
 const getEventTypeByKey = `-- name: GetEventTypeByKey :one
-SELECT id, key, name, description, requires, created_at FROM event_types WHERE key = $1
+SELECT et.id, et.key, et.name, et.description, et.requires, et.created_at, et2.key AS requires_key
+FROM event_types et
+LEFT JOIN event_types et2 ON et.requires = et2.id
+WHERE et.key = $1
 `
 
-func (q *Queries) GetEventTypeByKey(ctx context.Context, key string) (EventType, error) {
+type GetEventTypeByKeyRow struct {
+	ID          uuid.UUID
+	Key         string
+	Name        string
+	Description pgtype.Text
+	Requires    pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+	RequiresKey pgtype.Text
+}
+
+func (q *Queries) GetEventTypeByKey(ctx context.Context, key string) (GetEventTypeByKeyRow, error) {
 	row := q.db.QueryRow(ctx, getEventTypeByKey, key)
-	var i EventType
+	var i GetEventTypeByKeyRow
 	err := row.Scan(
 		&i.ID,
 		&i.Key,
@@ -43,23 +103,37 @@ func (q *Queries) GetEventTypeByKey(ctx context.Context, key string) (EventType,
 		&i.Description,
 		&i.Requires,
 		&i.CreatedAt,
+		&i.RequiresKey,
 	)
 	return i, err
 }
 
 const listEventTypes = `-- name: ListEventTypes :many
-SELECT id, key, name, description, requires, created_at FROM event_types ORDER BY key
+SELECT et.id, et.key, et.name, et.description, et.requires, et.created_at, et2.key AS requires_key
+FROM event_types et
+LEFT JOIN event_types et2 ON et.requires = et2.id
+ORDER BY et.created_at
 `
 
-func (q *Queries) ListEventTypes(ctx context.Context) ([]EventType, error) {
+type ListEventTypesRow struct {
+	ID          uuid.UUID
+	Key         string
+	Name        string
+	Description pgtype.Text
+	Requires    pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+	RequiresKey pgtype.Text
+}
+
+func (q *Queries) ListEventTypes(ctx context.Context) ([]ListEventTypesRow, error) {
 	rows, err := q.db.Query(ctx, listEventTypes)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []EventType
+	var items []ListEventTypesRow
 	for rows.Next() {
-		var i EventType
+		var i ListEventTypesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Key,
@@ -67,6 +141,7 @@ func (q *Queries) ListEventTypes(ctx context.Context) ([]EventType, error) {
 			&i.Description,
 			&i.Requires,
 			&i.CreatedAt,
+			&i.RequiresKey,
 		); err != nil {
 			return nil, err
 		}

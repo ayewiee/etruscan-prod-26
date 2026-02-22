@@ -403,15 +403,17 @@ type GuardrailTrigger struct {
 }
 
 type Metric struct {
-	ID              uuid.UUID
-	Name            string
-	Description     pgtype.Text
-	Type            MetricType
-	EventTypeKey    string
-	AggregationType MetricAggregationType
-	IsGuardrail     bool
-	CreatedAt       pgtype.Timestamptz
-	Key             string
+	ID                   uuid.UUID
+	Name                 string
+	Description          pgtype.Text
+	Type                 MetricType
+	EventTypeKey         pgtype.Text
+	AggregationType      NullMetricAggregationType
+	IsGuardrail          bool
+	CreatedAt            pgtype.Timestamptz
+	Key                  string
+	NumeratorMetricKey   pgtype.Text
+	DenominatorMetricKey pgtype.Text
 }
 
 type User struct {

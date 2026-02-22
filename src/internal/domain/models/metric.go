@@ -23,15 +23,23 @@ const (
 )
 
 type Metric struct {
-	ID              uuid.UUID
-	Key             string
-	Name            string
-	Description     *string
-	Type            MetricType
-	EventTypeKey    string
-	AggregationType MetricAggregationType
-	IsGuardrail     bool
-	CreatedAt       *time.Time
+	ID                   uuid.UUID
+	Key                  string
+	Name                 string
+	Description          *string
+	Type                 MetricType
+	EventTypeKey         string
+	AggregationType      MetricAggregationType
+	NumeratorMetricKey   *string
+	DenominatorMetricKey *string
+	IsGuardrail          bool
+	CreatedAt            *time.Time
+}
+
+// IsDerived returns true if this metric is a ratio of two other metrics.
+func (m *Metric) IsDerived() bool {
+	return m.NumeratorMetricKey != nil && *m.NumeratorMetricKey != "" &&
+		m.DenominatorMetricKey != nil && *m.DenominatorMetricKey != ""
 }
 
 type ExperimentMetric struct {

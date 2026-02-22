@@ -58,7 +58,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 	ptcptnTracker := cacherepo.NewParticipationTracker(redisClient)
 	flagCache := cacherepo.NewFlagCache(redisClient)
 
-	metricComputer := usecases.NewMetricComputer(decisionRepo, eventRepo, eventTypeRepo)
+	metricComputer := usecases.NewMetricComputer(decisionRepo, eventRepo, eventTypeRepo, metricRepo)
 
 	deps := Dependencies{
 		AuthUseCase:          usecases.NewAuthUseCase(userRepo, passwordHasher, jwtProvider),
@@ -84,8 +84,9 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 			flagRepo,
 			log,
 		),
-		EventsUseCase: usecases.NewEventsUseCase(eventRepo, eventTypeRepo),
-		MetricUseCase: usecases.NewMetricUseCase(metricRepo),
+		EventUseCase:     usecases.NewEventsUseCase(eventRepo, eventTypeRepo),
+		EventTypeUseCase: usecases.NewEventTypeUseCase(eventTypeRepo),
+		MetricUseCase:    usecases.NewMetricUseCase(metricRepo),
 		ReportUseCase: usecases.NewReportUseCase(
 			experimentRepo,
 			metricRepo,

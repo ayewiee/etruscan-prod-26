@@ -61,7 +61,7 @@ VALUES ($1, $2, $3);
 -- name: GetExperimentSnapshots :many
 SELECT * FROM experiment_snapshots
 WHERE experiment_id = $1
-ORDER BY version ASC;
+ORDER BY version DESC;
 
 -- name: FinishExperiment :one
 UPDATE experiments

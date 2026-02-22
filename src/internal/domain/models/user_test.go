@@ -17,6 +17,21 @@ func TestUserRole_CanManageFlags(t *testing.T) {
 	}
 }
 
+func TestUserRole_CanManageEventTypes(t *testing.T) {
+	if !UserRoleAdmin.CanManageEventTypes() {
+		t.Error("ADMIN should manage event types")
+	}
+	if !UserRoleExperimenter.CanManageEventTypes() {
+		t.Error("EXPERIMENTER should manage event types")
+	}
+	if UserRoleViewer.CanManageEventTypes() {
+		t.Error("VIEWER should not manage event types")
+	}
+	if UserRoleApprover.CanManageEventTypes() {
+		t.Error("APPROVER should not manage event types")
+	}
+}
+
 func TestUserRole_CanManageExperiments(t *testing.T) {
 	if !UserRoleAdmin.CanManageExperiments() {
 		t.Error("ADMIN should manage experiments")

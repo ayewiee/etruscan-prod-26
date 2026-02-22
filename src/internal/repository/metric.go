@@ -7,6 +7,7 @@ import (
 	"etruscan/internal/domain/models"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type MetricRepository interface {
@@ -28,20 +29,31 @@ func NewSQLCMetricRepository(db *dbgen.Queries) MetricRepository {
 }
 
 func (r *SQLCMetricRepository) Create(ctx context.Context, m *models.Metric) (*models.Metric, error) {
+	var eventTypeKey pgtype.Text
+	var aggType dbgen.NullMetricAggregationType
+	var numKey, denKey pgtype.Text
+	if m.IsDerived() {
+		numKey = database.ToPgText(m.NumeratorMetricKey)
+		denKey = database.ToPgText(m.DenominatorMetricKey)
+	} else {
+		eventTypeKey = pgtype.Text{String: m.EventTypeKey, Valid: true}
+		aggType = dbgen.NullMetricAggregationType{MetricAggregationType: dbgen.MetricAggregationType(m.AggregationType), Valid: true}
+	}
 	row, err := r.db.CreateMetric(ctx, dbgen.CreateMetricParams{
-		Key:             m.Key,
-		Name:            m.Name,
-		Description:     database.ToPgText(m.Description),
-		Type:            dbgen.MetricType(m.Type),
-		EventTypeKey:    m.EventTypeKey,
-		AggregationType: dbgen.MetricAggregationType(m.AggregationType),
-		IsGuardrail:     m.IsGuardrail,
+		Key:                  m.Key,
+		Name:                 m.Name,
+		Description:          database.ToPgText(m.Description),
+		Type:                 dbgen.MetricType(m.Type),
+		EventTypeKey:         eventTypeKey,
+		AggregationType:      aggType,
+		IsGuardrail:          m.IsGuardrail,
+		NumeratorMetricKey:   numKey,
+		DenominatorMetricKey: denKey,
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	return metricFromDB(row), nil
+	return metricRowToDomain(row.ID, row.Key, row.Name, row.Description, row.Type, row.EventTypeKey, row.AggregationType, row.IsGuardrail, row.CreatedAt, row.NumeratorMetricKey, row.DenominatorMetricKey), nil
 }
 
 func (r *SQLCMetricRepository) GetByKey(ctx context.Context, key string) (*models.Metric, error) {
@@ -49,8 +61,7 @@ func (r *SQLCMetricRepository) GetByKey(ctx context.Context, key string) (*model
 	if err != nil {
 		return nil, err
 	}
-
-	return metricFromDB(row), nil
+	return metricRowToDomain(row.ID, row.Key, row.Name, row.Description, row.Type, row.EventTypeKey, row.AggregationType, row.IsGuardrail, row.CreatedAt, row.NumeratorMetricKey, row.DenominatorMetricKey), nil
 }
 
 func (r *SQLCMetricRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Metric, error) {
@@ -58,8 +69,7 @@ func (r *SQLCMetricRepository) GetByID(ctx context.Context, id uuid.UUID) (*mode
 	if err != nil {
 		return nil, err
 	}
-
-	return metricFromDB(row), nil
+	return metricRowToDomain(row.ID, row.Key, row.Name, row.Description, row.Type, row.EventTypeKey, row.AggregationType, row.IsGuardrail, row.CreatedAt, row.NumeratorMetricKey, row.DenominatorMetricKey), nil
 }
 
 func (r *SQLCMetricRepository) List(ctx context.Context) ([]*models.Metric, error) {
@@ -67,12 +77,10 @@ func (r *SQLCMetricRepository) List(ctx context.Context) ([]*models.Metric, erro
 	if err != nil {
 		return nil, err
 	}
-
 	out := make([]*models.Metric, len(rows))
 	for i := range rows {
-		out[i] = metricFromDB(rows[i])
+		out[i] = metricRowToDomain(rows[i].ID, rows[i].Key, rows[i].Name, rows[i].Description, rows[i].Type, rows[i].EventTypeKey, rows[i].AggregationType, rows[i].IsGuardrail, rows[i].CreatedAt, rows[i].NumeratorMetricKey, rows[i].DenominatorMetricKey)
 	}
-
 	return out, nil
 }
 
@@ -112,16 +120,26 @@ func (r *SQLCMetricRepository) ListExperimentMetrics(ctx context.Context, experi
 	return out, nil
 }
 
-func metricFromDB(row dbgen.Metric) *models.Metric {
+func metricRowToDomain(id uuid.UUID, key, name string, desc pgtype.Text, t dbgen.MetricType, eventKey pgtype.Text, agg dbgen.NullMetricAggregationType, isGuardrail bool, createdAt pgtype.Timestamptz, numKey, denKey pgtype.Text) *models.Metric {
+	var eventTypeKey string
+	if eventKey.Valid {
+		eventTypeKey = eventKey.String
+	}
+	var aggType models.MetricAggregationType
+	if agg.Valid {
+		aggType = models.MetricAggregationType(agg.MetricAggregationType)
+	}
 	return &models.Metric{
-		ID:              row.ID,
-		Key:             row.Key,
-		Name:            row.Name,
-		Type:            models.MetricType(row.Type),
-		EventTypeKey:    row.EventTypeKey,
-		AggregationType: models.MetricAggregationType(row.AggregationType),
-		IsGuardrail:     row.IsGuardrail,
-		Description:     database.FromPgText(row.Description),
-		CreatedAt:       database.FromPgTimestamptz(row.CreatedAt),
+		ID:                   id,
+		Key:                  key,
+		Name:                 name,
+		Type:                 models.MetricType(t),
+		EventTypeKey:         eventTypeKey,
+		AggregationType:      aggType,
+		NumeratorMetricKey:   database.FromPgText(numKey),
+		DenominatorMetricKey: database.FromPgText(denKey),
+		IsGuardrail:          isGuardrail,
+		Description:          database.FromPgText(desc),
+		CreatedAt:            database.FromPgTimestamptz(createdAt),
 	}
 }

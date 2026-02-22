@@ -30,19 +30,21 @@ func (q *Queries) AddExperimentMetric(ctx context.Context, arg AddExperimentMetr
 }
 
 const createMetric = `-- name: CreateMetric :one
-INSERT INTO metrics (key, name, description, type, event_type_key, aggregation_type, is_guardrail)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, key
+INSERT INTO metrics (key, name, description, type, event_type_key, aggregation_type, is_guardrail, numerator_metric_key, denominator_metric_key)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, key, numerator_metric_key, denominator_metric_key
 `
 
 type CreateMetricParams struct {
-	Key             string
-	Name            string
-	Description     pgtype.Text
-	Type            MetricType
-	EventTypeKey    string
-	AggregationType MetricAggregationType
-	IsGuardrail     bool
+	Key                  string
+	Name                 string
+	Description          pgtype.Text
+	Type                 MetricType
+	EventTypeKey         pgtype.Text
+	AggregationType      NullMetricAggregationType
+	IsGuardrail          bool
+	NumeratorMetricKey   pgtype.Text
+	DenominatorMetricKey pgtype.Text
 }
 
 func (q *Queries) CreateMetric(ctx context.Context, arg CreateMetricParams) (Metric, error) {
@@ -54,6 +56,8 @@ func (q *Queries) CreateMetric(ctx context.Context, arg CreateMetricParams) (Met
 		arg.EventTypeKey,
 		arg.AggregationType,
 		arg.IsGuardrail,
+		arg.NumeratorMetricKey,
+		arg.DenominatorMetricKey,
 	)
 	var i Metric
 	err := row.Scan(
@@ -66,6 +70,8 @@ func (q *Queries) CreateMetric(ctx context.Context, arg CreateMetricParams) (Met
 		&i.IsGuardrail,
 		&i.CreatedAt,
 		&i.Key,
+		&i.NumeratorMetricKey,
+		&i.DenominatorMetricKey,
 	)
 	return i, err
 }
@@ -80,14 +86,29 @@ func (q *Queries) DeleteExperimentMetrics(ctx context.Context, experimentID uuid
 }
 
 const getMetricByID = `-- name: GetMetricByID :one
-SELECT id, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, key FROM metrics WHERE id = $1
+SELECT id, key, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, numerator_metric_key, denominator_metric_key FROM metrics WHERE id = $1
 `
 
-func (q *Queries) GetMetricByID(ctx context.Context, id uuid.UUID) (Metric, error) {
+type GetMetricByIDRow struct {
+	ID                   uuid.UUID
+	Key                  string
+	Name                 string
+	Description          pgtype.Text
+	Type                 MetricType
+	EventTypeKey         pgtype.Text
+	AggregationType      NullMetricAggregationType
+	IsGuardrail          bool
+	CreatedAt            pgtype.Timestamptz
+	NumeratorMetricKey   pgtype.Text
+	DenominatorMetricKey pgtype.Text
+}
+
+func (q *Queries) GetMetricByID(ctx context.Context, id uuid.UUID) (GetMetricByIDRow, error) {
 	row := q.db.QueryRow(ctx, getMetricByID, id)
-	var i Metric
+	var i GetMetricByIDRow
 	err := row.Scan(
 		&i.ID,
+		&i.Key,
 		&i.Name,
 		&i.Description,
 		&i.Type,
@@ -95,20 +116,36 @@ func (q *Queries) GetMetricByID(ctx context.Context, id uuid.UUID) (Metric, erro
 		&i.AggregationType,
 		&i.IsGuardrail,
 		&i.CreatedAt,
-		&i.Key,
+		&i.NumeratorMetricKey,
+		&i.DenominatorMetricKey,
 	)
 	return i, err
 }
 
 const getMetricByKey = `-- name: GetMetricByKey :one
-SELECT id, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, key FROM metrics WHERE key = $1
+SELECT id, key, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, numerator_metric_key, denominator_metric_key FROM metrics WHERE key = $1
 `
 
-func (q *Queries) GetMetricByKey(ctx context.Context, key string) (Metric, error) {
+type GetMetricByKeyRow struct {
+	ID                   uuid.UUID
+	Key                  string
+	Name                 string
+	Description          pgtype.Text
+	Type                 MetricType
+	EventTypeKey         pgtype.Text
+	AggregationType      NullMetricAggregationType
+	IsGuardrail          bool
+	CreatedAt            pgtype.Timestamptz
+	NumeratorMetricKey   pgtype.Text
+	DenominatorMetricKey pgtype.Text
+}
+
+func (q *Queries) GetMetricByKey(ctx context.Context, key string) (GetMetricByKeyRow, error) {
 	row := q.db.QueryRow(ctx, getMetricByKey, key)
-	var i Metric
+	var i GetMetricByKeyRow
 	err := row.Scan(
 		&i.ID,
+		&i.Key,
 		&i.Name,
 		&i.Description,
 		&i.Type,
@@ -116,7 +153,8 @@ func (q *Queries) GetMetricByKey(ctx context.Context, key string) (Metric, error
 		&i.AggregationType,
 		&i.IsGuardrail,
 		&i.CreatedAt,
-		&i.Key,
+		&i.NumeratorMetricKey,
+		&i.DenominatorMetricKey,
 	)
 	return i, err
 }
@@ -151,20 +189,35 @@ func (q *Queries) ListExperimentMetricIDs(ctx context.Context, experimentID uuid
 }
 
 const listMetrics = `-- name: ListMetrics :many
-SELECT id, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, key FROM metrics ORDER BY key
+SELECT id, key, name, description, type, event_type_key, aggregation_type, is_guardrail, created_at, numerator_metric_key, denominator_metric_key FROM metrics ORDER BY key
 `
 
-func (q *Queries) ListMetrics(ctx context.Context) ([]Metric, error) {
+type ListMetricsRow struct {
+	ID                   uuid.UUID
+	Key                  string
+	Name                 string
+	Description          pgtype.Text
+	Type                 MetricType
+	EventTypeKey         pgtype.Text
+	AggregationType      NullMetricAggregationType
+	IsGuardrail          bool
+	CreatedAt            pgtype.Timestamptz
+	NumeratorMetricKey   pgtype.Text
+	DenominatorMetricKey pgtype.Text
+}
+
+func (q *Queries) ListMetrics(ctx context.Context) ([]ListMetricsRow, error) {
 	rows, err := q.db.Query(ctx, listMetrics)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Metric
+	var items []ListMetricsRow
 	for rows.Next() {
-		var i Metric
+		var i ListMetricsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Key,
 			&i.Name,
 			&i.Description,
 			&i.Type,
@@ -172,7 +225,8 @@ func (q *Queries) ListMetrics(ctx context.Context) ([]Metric, error) {
 			&i.AggregationType,
 			&i.IsGuardrail,
 			&i.CreatedAt,
-			&i.Key,
+			&i.NumeratorMetricKey,
+			&i.DenominatorMetricKey,
 		); err != nil {
 			return nil, err
 		}

@@ -275,21 +275,26 @@ components:
         name: { type: string }
         description: { type: string, nullable: true }
         type: { type: string, enum: [binomial, continuous] }
-        eventTypeKey: { type: string }
-        aggregationType: { type: string, enum: [count, sum, avg, p95] }
+        eventTypeKey: { type: string, description: "Present for primitive metrics only" }
+        aggregationType: { type: string, enum: [count, sum, avg, p95], description: "Present for primitive metrics only" }
+        numeratorMetricKey: { type: string, description: "Present for derived (ratio) metrics only" }
+        denominatorMetricKey: { type: string, description: "Present for derived (ratio) metrics only" }
         isGuardrail: { type: boolean }
         createdAt: { type: string, format: date-time }
     CreateMetricRequest:
       type: object
-      required: [key, name, type, eventTypeKey, aggregationType]
+      required: [key, name, type]
       properties:
         key: { type: string }
         name: { type: string }
         description: { type: string, nullable: true }
         type: { type: string, enum: [binomial, continuous] }
-        eventTypeKey: { type: string }
-        aggregationType: { type: string, enum: [count, sum, avg, p95] }
+        eventTypeKey: { type: string, description: "Required for primitive metrics; omit for derived" }
+        aggregationType: { type: string, enum: [count, sum, avg, p95], description: "Required for primitive metrics; omit for derived" }
+        numeratorMetricKey: { type: string, description: "Required for derived (ratio) metrics; omit for primitive" }
+        denominatorMetricKey: { type: string, description: "Required for derived (ratio) metrics; omit for primitive" }
         isGuardrail: { type: boolean, default: false }
+      description: "Either (eventTypeKey + aggregationType) for primitive metrics, or (numeratorMetricKey + denominatorMetricKey) for derived ratio metrics."
 
     # --- Report ---
     ExperimentReportResponse:
@@ -794,7 +799,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DecideResponse' }
-  /events:
+  /track:
     post:
       summary: Ingest events (batch)
       tags: [Runtime]

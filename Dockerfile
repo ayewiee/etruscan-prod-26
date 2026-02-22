@@ -11,7 +11,7 @@ WORKDIR /opt
 COPY src/go.mod src/go.sum ./
 RUN go mod download && go mod verify
 
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+RUN go install github.com/pressly/goose/v3/cmd/goose@v3.26.0
 
 # Copy application source.
 COPY ./src .
