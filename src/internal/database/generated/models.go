@@ -232,6 +232,48 @@ func (ns NullMetricType) Value() (driver.Value, error) {
 	return string(ns.MetricType), nil
 }
 
+type NotificationSeverity string
+
+const (
+	NotificationSeverityLOW  NotificationSeverity = "LOW"
+	NotificationSeverityHIGH NotificationSeverity = "HIGH"
+)
+
+func (e *NotificationSeverity) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = NotificationSeverity(s)
+	case string:
+		*e = NotificationSeverity(s)
+	default:
+		return fmt.Errorf("unsupported scan type for NotificationSeverity: %T", src)
+	}
+	return nil
+}
+
+type NullNotificationSeverity struct {
+	NotificationSeverity NotificationSeverity
+	Valid                bool // Valid is true if NotificationSeverity is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullNotificationSeverity) Scan(value interface{}) error {
+	if value == nil {
+		ns.NotificationSeverity, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.NotificationSeverity.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullNotificationSeverity) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.NotificationSeverity), nil
+}
+
 type UserRole string
 
 const (
@@ -416,17 +458,27 @@ type Metric struct {
 	DenominatorMetricKey pgtype.Text
 }
 
+type NotificationSetting struct {
+	ID             uuid.UUID
+	UserID         uuid.UUID
+	ExperimentID   uuid.UUID
+	Severity       NotificationSeverity
+	EnableTelegram bool
+	EnableEmail    bool
+}
+
 type User struct {
-	ID            uuid.UUID
-	Email         string
-	Username      string
-	PasswordHash  string
-	Role          UserRole
-	MinApprovals  pgtype.Int4
-	ApproverGroup pgtype.UUID
-	IsActive      bool
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
+	ID             uuid.UUID
+	Email          string
+	Username       string
+	PasswordHash   string
+	Role           UserRole
+	MinApprovals   pgtype.Int4
+	ApproverGroup  pgtype.UUID
+	IsActive       bool
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+	TelegramChatID pgtype.Text
 }
 
 type Variant struct {
