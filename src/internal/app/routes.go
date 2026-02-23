@@ -80,6 +80,9 @@ func (app *App) RegisterRoutes() {
 
 	userHdl := handlers.NewUserHandler(app.Deps.UserUseCase)
 
+	protected.GET("/profile", userHdl.GetProfile)
+	protected.PATCH("/profile", userHdl.UpdateProfile)
+
 	admin.GET("/users", userHdl.AdminList)
 	admin.POST("/users", userHdl.AdminCreate)
 	admin.GET("/users/:id", userHdl.AdminGetProfile)
@@ -132,10 +135,12 @@ func (app *App) RegisterRoutes() {
 	apiv1.POST("/track", eventsHdl.BatchTrack)
 
 	metricHdl := handlers.NewMetricHandler(app.Deps.MetricUseCase)
+
 	protected.GET("/metrics", metricHdl.List)
 	protected.POST("/metrics", metricHdl.Create)
 	protected.GET("/metrics/:id", metricHdl.GetByID)
 
 	reportHdl := handlers.NewReportHandler(app.Deps.ReportUseCase)
+
 	protected.GET("/experiments/:id/report", reportHdl.GetExperimentReport)
 }

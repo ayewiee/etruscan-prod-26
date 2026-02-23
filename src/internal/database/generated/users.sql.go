@@ -21,7 +21,7 @@ UPDATE users SET
     min_approvals = $6,
     approver_group = $7
 WHERE id = $1
-RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at
+RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id
 `
 
 type AdminUpdateUserParams struct {
@@ -56,6 +56,7 @@ func (q *Queries) AdminUpdateUser(ctx context.Context, arg AdminUpdateUserParams
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TelegramChatID,
 	)
 	return i, err
 }
@@ -74,7 +75,7 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, username, password_hash, role, min_approvals, approver_group)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at
+RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id
 `
 
 type CreateUserParams struct {
@@ -107,12 +108,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TelegramChatID,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at FROM users WHERE email = $1
+SELECT id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -129,12 +131,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TelegramChatID,
 	)
 	return i, err
 }
 
 const getUserById = `-- name: GetUserById :one
-SELECT id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
@@ -151,12 +154,13 @@ func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TelegramChatID,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at FROM users WHERE is_active = true LIMIT $1 OFFSET $2
+SELECT id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id FROM users WHERE is_active = true LIMIT $1 OFFSET $2
 `
 
 type ListUsersParams struct {
@@ -184,6 +188,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TelegramChatID,
 		); err != nil {
 			return nil, err
 		}
@@ -209,7 +214,7 @@ UPDATE users SET
     username = $2,
     password_hash = $3
 WHERE id = $1
-RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at
+RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id
 `
 
 type UpdateUserParams struct {
@@ -232,6 +237,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TelegramChatID,
 	)
 	return i, err
 }

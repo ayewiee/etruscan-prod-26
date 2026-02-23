@@ -51,9 +51,10 @@ func (h *ReportHandler) GetExperimentReport(c echo.Context) error {
 	}
 	for i, v := range report.Variants {
 		resp.Variants[i] = dto.VariantMetricValues{
-			VariantID:   v.VariantID,
-			VariantName: v.VariantName,
-			Metrics:     v.Metrics,
+			ID:      v.ID,
+			Name:    v.Name,
+			Value:   v.Value,
+			Metrics: v.Metrics,
 		}
 	}
 	return c.JSON(http.StatusOK, resp)

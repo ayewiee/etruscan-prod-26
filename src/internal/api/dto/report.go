@@ -19,7 +19,8 @@ type ExperimentReportResponse struct {
 }
 
 type VariantMetricValues struct {
-	VariantID   uuid.UUID          `json:"variantId"`
-	VariantName string             `json:"variantName"`
-	Metrics     map[string]float64 `json:"metrics"`
+	ID      uuid.UUID          `json:"id"`
+	Name    string             `json:"name"`
+	Value   interface{}        `json:"value"`
+	Metrics map[string]float64 `json:"metrics"`
 }

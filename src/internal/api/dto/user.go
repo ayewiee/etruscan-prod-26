@@ -28,8 +28,8 @@ func (req *AdminCreateUpdateUserRequest) ToDomain() *models.User {
 }
 
 type UserUpdateRequest struct {
-	Username string `json:"username" validate:"required,min=4,max=32"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
+	Username *string `json:"username" validate:"omitempty,required,min=4,max=32"`
+	Password *string `json:"password" validate:"omitempty,required,min=8,max=64"`
 }
 
 type UserResponseDTO struct {

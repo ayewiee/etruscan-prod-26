@@ -63,8 +63,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in currentMetricValues" :key="row.variantId">
-                  <td>{{ row.variantName }}</td>
+                <tr v-for="row in currentMetricValues" :key="row.id">
+                  <td>{{ row.name }}</td>
                   <td>{{ formatMetricValue(row.value, selectedMetricKey) }}</td>
                   <td>{{ row.weight }}%</td>
                   <td>{{ row.isControl ? "Yes" : "No" }}</td>
@@ -200,10 +200,10 @@ const currentMetricValues = computed(() => {
   }
   const variants = experiment.value.variants;
   return report.value.variants.map((v) => {
-    const def = variants.find((vv) => vv.id === v.variantId);
+    const def = variants.find((vv) => vv.id === v.id);
     return {
-      variantId: v.variantId,
-      variantName: v.variantName,
+      id: v.id,
+      name: v.name,
       value: v.metrics[selectedMetricKey.value!] ?? 0,
       weight: def?.weight ?? 0,
       isControl: def?.isControl ?? false
@@ -219,7 +219,7 @@ const chartData = computed(() => {
     };
   }
   return {
-    labels: currentMetricValues.value.map((v) => v.variantName),
+    labels: currentMetricValues.value.map((v) => v.name),
     datasets: [
       {
         label: metricLabel(selectedMetricKey.value || ""),
@@ -321,8 +321,8 @@ function downloadCsv() {
   const rows: string[] = [];
   const header = [
     "metricKey",
-    "variantName",
-    "variantId",
+    "name",
+    "id",
     "value",
     "weight",
     "isControl"
@@ -332,14 +332,14 @@ function downloadCsv() {
   for (const m of experimentMetrics.value) {
     for (const v of report.value.variants) {
       const variantDef = experiment.value.variants.find(
-        (vv) => vv.id === v.variantId
+        (vv) => vv.id === v.id
       );
       const value = v.metrics[m.metricKey] ?? 0;
       rows.push(
         [
           m.metricKey,
-          `"${v.variantName}"`,
-          v.variantId,
+          `"${v.name}"`,
+          v.id,
           value,
           variantDef?.weight ?? "",
           variantDef?.isControl ? "true" : "false"

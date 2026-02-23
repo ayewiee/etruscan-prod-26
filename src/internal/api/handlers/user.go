@@ -146,3 +146,40 @@ func (h *UserHandler) AdminList(c echo.Context) error {
 		pagination.Size,
 	))
 }
+
+func (h *UserHandler) GetProfile(c echo.Context) error {
+	actor, err := api.ExtractUserAuthDataFromContext(c)
+	if err != nil {
+		return err
+	}
+
+	user, err := h.usecase.GetByID(c.Request().Context(), actor, actor.ID)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, dto.UserResponseDTOFromDomain(user))
+}
+
+func (h *UserHandler) UpdateProfile(c echo.Context) error {
+	actor, err := api.ExtractUserAuthDataFromContext(c)
+	if err != nil {
+		return err
+	}
+
+	var req dto.UserUpdateRequest
+
+	if err = c.Bind(&req); err != nil {
+		return err
+	}
+	if err = c.Validate(&req); err != nil {
+		return apierrors.ValidationError(err, req)
+	}
+
+	user, err := h.usecase.Update(c.Request().Context(), actor, req.Username, req.Password)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, dto.UserResponseDTOFromDomain(user))
+}

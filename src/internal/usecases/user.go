@@ -113,3 +113,31 @@ func (uc *UserUseCase) SoftDelete(ctx context.Context, actor models.UserAuthData
 
 	return uc.repo.SoftDelete(ctx, id)
 }
+
+func (uc *UserUseCase) Update(
+	ctx context.Context,
+	actor models.UserAuthData,
+	username, newPassword *string,
+) (*models.User, error) {
+	user, err := uc.repo.GetById(ctx, actor.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// how's that possible though...
+			return nil, models.NewErrNotFound("User not found", nil, err)
+		}
+	}
+
+	if username != nil {
+		user.Username = *username
+	}
+
+	if newPassword != nil {
+		newPasswordHash, err := uc.passwordHasher.Hash(*newPassword)
+		if err != nil {
+			return nil, err
+		}
+		user.PasswordHash = newPasswordHash
+	}
+
+	return uc.repo.Update(ctx, user)
+}

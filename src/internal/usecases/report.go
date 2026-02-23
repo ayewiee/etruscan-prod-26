@@ -35,9 +35,10 @@ type ExperimentReport struct {
 }
 
 type VariantMetricValues struct {
-	VariantID   uuid.UUID
-	VariantName string
-	Metrics     map[string]float64
+	ID      uuid.UUID
+	Name    string
+	Value   interface{}
+	Metrics map[string]float64
 }
 
 func (uc *ReportUseCase) GetExperimentReport(ctx context.Context, experimentID uuid.UUID, from, to time.Time) (*ExperimentReport, error) {
@@ -77,9 +78,10 @@ func (uc *ReportUseCase) GetExperimentReport(ctx context.Context, experimentID u
 	variantValues := make([]VariantMetricValues, len(variants))
 	for i, v := range variants {
 		vm := VariantMetricValues{
-			VariantID:   v.ID,
-			VariantName: v.Name,
-			Metrics:     make(map[string]float64),
+			ID:      v.ID,
+			Name:    v.Name,
+			Value:   v.Value,
+			Metrics: make(map[string]float64),
 		}
 		for _, metric := range metrics {
 			val, err := uc.computer.Compute(ctx, experimentID, &v.ID, metric, from, to)
@@ -103,9 +105,10 @@ func buildEmptyVariants(variants []*models.Variant) []VariantMetricValues {
 	out := make([]VariantMetricValues, len(variants))
 	for i, v := range variants {
 		out[i] = VariantMetricValues{
-			VariantID:   v.ID,
-			VariantName: v.Name,
-			Metrics:     make(map[string]float64),
+			ID:      v.ID,
+			Name:    v.Name,
+			Value:   v.Value,
+			Metrics: make(map[string]float64),
 		}
 	}
 	return out

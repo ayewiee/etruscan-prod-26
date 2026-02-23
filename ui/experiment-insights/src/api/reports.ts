@@ -1,8 +1,9 @@
 import { api } from "./client";
 
 export interface VariantMetricValues {
-  variantId: string;
-  variantName: string;
+  id: string;
+  name: string;
+  value: string;
   metrics: Record<string, number>;
 }
 
