@@ -1,5 +1,7 @@
 ## Архитектура платформы Etruscan
 
+_PARTIALLY OR FULLY AI GENERATED (but reviewed and refined by a human <3)_
+
 ---
 
 ## C4 Context (L1): внешние акторы и границы

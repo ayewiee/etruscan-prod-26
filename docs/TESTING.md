@@ -1,5 +1,7 @@
 ## Тестирование
 
+_PARTIALLY OR FULLY AI GENERATED (but reviewed and refined by a human <3)_
+
 Этот документ описывает, какие типы тестов есть в проекте, как их запускать и как получить отчёт по покрытию.
 
 ---
