@@ -4,6 +4,11 @@ _PARTIALLY OR FULLY AI GENERATED (but reviewed and refined by a human <3)_
 
 ---
 
+## 0. Инженерная дисциплина
+
+- **Lint**: `make lint`
+- **Format**: `make fmt`
+
 ## 1. Liveness и Readiness
 
 Эндпоинты реализованы в `internal/app/routes.go` и доступны без аутентификации:
