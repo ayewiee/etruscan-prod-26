@@ -117,7 +117,7 @@ func (uc *UserUseCase) SoftDelete(ctx context.Context, actor models.UserAuthData
 func (uc *UserUseCase) Update(
 	ctx context.Context,
 	actor models.UserAuthData,
-	username, newPassword *string,
+	username, newPassword, telegramChatID *string,
 ) (*models.User, error) {
 	user, err := uc.repo.GetById(ctx, actor.ID)
 	if err != nil {
@@ -137,6 +137,10 @@ func (uc *UserUseCase) Update(
 			return nil, err
 		}
 		user.PasswordHash = newPasswordHash
+	}
+
+	if telegramChatID != nil {
+		user.TelegramChatID = telegramChatID
 	}
 
 	return uc.repo.Update(ctx, user)

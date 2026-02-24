@@ -176,7 +176,7 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 		return apierrors.ValidationError(err, req)
 	}
 
-	user, err := h.usecase.Update(c.Request().Context(), actor, req.Username, req.Password)
+	user, err := h.usecase.Update(c.Request().Context(), actor, req.Username, req.Password, req.TelegramChatID)
 	if err != nil {
 		return err
 	}

@@ -19,19 +19,21 @@ UPDATE users SET
     password_hash = $4,
     role = $5,
     min_approvals = $6,
-    approver_group = $7
+    approver_group = $7,
+    telegram_chat_id = $8
 WHERE id = $1
 RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id
 `
 
 type AdminUpdateUserParams struct {
-	ID            uuid.UUID
-	Email         string
-	Username      string
-	PasswordHash  string
-	Role          UserRole
-	MinApprovals  pgtype.Int4
-	ApproverGroup pgtype.UUID
+	ID             uuid.UUID
+	Email          string
+	Username       string
+	PasswordHash   string
+	Role           UserRole
+	MinApprovals   pgtype.Int4
+	ApproverGroup  pgtype.UUID
+	TelegramChatID pgtype.Text
 }
 
 func (q *Queries) AdminUpdateUser(ctx context.Context, arg AdminUpdateUserParams) (User, error) {
@@ -43,6 +45,7 @@ func (q *Queries) AdminUpdateUser(ctx context.Context, arg AdminUpdateUserParams
 		arg.Role,
 		arg.MinApprovals,
 		arg.ApproverGroup,
+		arg.TelegramChatID,
 	)
 	var i User
 	err := row.Scan(
@@ -73,18 +76,19 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, username, password_hash, role, min_approvals, approver_group)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO users (email, username, password_hash, role, min_approvals, approver_group, telegram_chat_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id
 `
 
 type CreateUserParams struct {
-	Email         string
-	Username      string
-	PasswordHash  string
-	Role          UserRole
-	MinApprovals  pgtype.Int4
-	ApproverGroup pgtype.UUID
+	Email          string
+	Username       string
+	PasswordHash   string
+	Role           UserRole
+	MinApprovals   pgtype.Int4
+	ApproverGroup  pgtype.UUID
+	TelegramChatID pgtype.Text
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -95,6 +99,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Role,
 		arg.MinApprovals,
 		arg.ApproverGroup,
+		arg.TelegramChatID,
 	)
 	var i User
 	err := row.Scan(
@@ -212,19 +217,26 @@ func (q *Queries) SoftDeleteUser(ctx context.Context, id uuid.UUID) error {
 const updateUser = `-- name: UpdateUser :one
 UPDATE users SET
     username = $2,
-    password_hash = $3
+    password_hash = $3,
+    telegram_chat_id = $4
 WHERE id = $1
 RETURNING id, email, username, password_hash, role, min_approvals, approver_group, is_active, created_at, updated_at, telegram_chat_id
 `
 
 type UpdateUserParams struct {
-	ID           uuid.UUID
-	Username     string
-	PasswordHash string
+	ID             uuid.UUID
+	Username       string
+	PasswordHash   string
+	TelegramChatID pgtype.Text
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUser, arg.ID, arg.Username, arg.PasswordHash)
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.ID,
+		arg.Username,
+		arg.PasswordHash,
+		arg.TelegramChatID,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,

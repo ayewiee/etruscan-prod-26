@@ -16,6 +16,7 @@ type GuardrailRunner struct {
 	guardrailRepo        repository.GuardrailRepository
 	metricRepo           repository.MetricRepository
 	computer             *MetricComputer
+	notifications        *NotificationRouter
 	logger               *zap.Logger
 	checkIntervalMinutes int
 }
@@ -25,6 +26,7 @@ func NewGuardrailRunner(
 	guardrailRepo repository.GuardrailRepository,
 	metricRepo repository.MetricRepository,
 	computer *MetricComputer,
+	notifications *NotificationRouter,
 	logger *zap.Logger,
 	checkIntervalMinutes int,
 ) *GuardrailRunner {
@@ -33,6 +35,7 @@ func NewGuardrailRunner(
 		guardrailRepo:        guardrailRepo,
 		metricRepo:           metricRepo,
 		computer:             computer,
+		notifications:        notifications,
 		logger:               logger,
 		checkIntervalMinutes: checkIntervalMinutes,
 	}
@@ -114,17 +117,28 @@ func (r *GuardrailRunner) evaluateExperiment(ctx context.Context, experimentID u
 			continue
 		}
 
+		var newStatus *models.ExperimentStatus
+		var outcome *models.ExperimentOutcome
+
 		switch g.Action {
 		case "pause":
 			_ = r.experimentRepo.UpdateStatus(ctx, experimentID, models.ExperimentStatusPaused)
+			ns := models.ExperimentStatusPaused
+			newStatus = &ns
 		case "rollback":
-			_, _ = r.experimentRepo.Finish(
+			exp, _ := r.experimentRepo.Finish(
 				ctx,
 				experimentID,
 				models.ExperimentOutcomeRollback,
 				"Guardrail with id "+g.ID.String()+" triggered",
 				nil, // system -> nil
 			)
+			if exp != nil {
+				oc := models.ExperimentOutcomeRollback
+				outcome = &oc
+				ns := exp.Status
+				newStatus = &ns
+			}
 		}
 
 		_, err = r.guardrailRepo.CreateTrigger(ctx, g.ID, experimentID, val, g.MetricKey, g.Threshold, g.WindowSeconds, g.Action)
@@ -134,6 +148,24 @@ func (r *GuardrailRunner) evaluateExperiment(ctx context.Context, experimentID u
 		}
 
 		r.logger.Info("guardrail triggered", zap.String("experimentId", experimentID.String()), zap.String("metricKey", g.MetricKey), zap.Float64("value", val), zap.Float64("threshold", g.Threshold))
+
+		if r.notifications != nil {
+			exp, err := r.experimentRepo.GetByID(ctx, experimentID)
+			if err == nil {
+				NotifyGuardrailTriggered(ctx, r.notifications, exp, g, val)
+				if newStatus != nil {
+					oldStatus := models.ExperimentStatusLaunched
+					NotifyExperimentStatusChangedSystem(
+						ctx,
+						r.notifications,
+						exp,
+						&oldStatus,
+						*newStatus,
+						outcome,
+					)
+				}
+			}
+		}
 	}
 }
 

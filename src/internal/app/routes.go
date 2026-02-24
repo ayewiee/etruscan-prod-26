@@ -8,15 +8,30 @@ import (
 	"io/fs"
 	"net/http"
 
-	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
+	"github.com/MarceloPetrucio/go-scalar-api-reference"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"gopkg.in/yaml.v3"
 )
 
 func (app *App) RegisterRoutes() {
-	specRoot, _ := fs.Sub(specFS, "spec")
 	apiv1 := app.Echo.Group("/api/v1")
+
+	apiv1.GET("/ready", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, echo.Map{
+			"status": "ready",
+		})
+	})
+
+	apiv1.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, echo.Map{
+			"status": "healthy",
+		})
+	})
+
+	// Docs
+
+	specRoot, _ := fs.Sub(specFS, "spec")
 	apiv1.GET("/openapi.yaml", func(c echo.Context) error {
 		data, err := fs.ReadFile(specRoot, "openapi.yaml")
 		if err != nil {
@@ -24,6 +39,16 @@ func (app *App) RegisterRoutes() {
 		}
 		return c.Blob(http.StatusOK, "application/x-yaml", data)
 	})
+
+	// /swagger — self-contained viewer (no CDN); use when no internet.
+	app.Echo.GET("/swagger", func(c echo.Context) error {
+		htmlContent, err := offlineDocsHTML(specRoot)
+		if err != nil {
+			return err
+		}
+		return c.HTMLBlob(http.StatusOK, htmlContent)
+	})
+
 	// /docs — Scalar UI (loads JS from CDN; use when online).
 	app.Echo.GET("/docs", func(c echo.Context) error {
 		data, err := fs.ReadFile(specRoot, "openapi.yaml")
@@ -50,26 +75,8 @@ func (app *App) RegisterRoutes() {
 		}
 		return c.HTMLBlob(http.StatusOK, []byte(htmlContent))
 	})
-	// /docs/offline — self-contained viewer (no CDN); use when no internet.
-	app.Echo.GET("/docs/offline", func(c echo.Context) error {
-		htmlContent, err := offlineDocsHTML(specRoot)
-		if err != nil {
-			return err
-		}
-		return c.HTMLBlob(http.StatusOK, htmlContent)
-	})
 
-	apiv1.GET("/ready", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, echo.Map{
-			"status": "ready",
-		})
-	})
-
-	apiv1.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, echo.Map{
-			"status": "healthy",
-		})
-	})
+	// Handlers
 
 	authHdl := handlers.NewAuthHandler(app.Deps.AuthUseCase)
 
@@ -123,16 +130,15 @@ func (app *App) RegisterRoutes() {
 	protected.POST("/experiments/:id/pause", expHdl.Pause)
 	protected.POST("/experiments/:id/finish", expHdl.Finish)
 
+	notificationSettingsHdl := handlers.NewNotificationSettingsHandler(app.Deps.NotificationSettingsUseCase)
+
+	protected.POST("/experiments/:id/notifications", notificationSettingsHdl.Create)
+	protected.DELETE("/experiments/:id/notifications", notificationSettingsHdl.DeleteForExperiment)
+
 	eventTypeHdl := handlers.NewEventTypeHandler(app.Deps.EventTypeUseCase)
 
 	protected.POST("/events/types", eventTypeHdl.Create)
 	protected.GET("/events/types", eventTypeHdl.List)
-
-	decideHdl := handlers.NewDecideHandler(app.Deps.DecideUseCase)
-	eventsHdl := handlers.NewEventsHandler(app.Deps.EventUseCase)
-
-	apiv1.POST("/decide", decideHdl.Decide)
-	apiv1.POST("/track", eventsHdl.BatchTrack)
 
 	metricHdl := handlers.NewMetricHandler(app.Deps.MetricUseCase)
 
@@ -143,4 +149,10 @@ func (app *App) RegisterRoutes() {
 	reportHdl := handlers.NewReportHandler(app.Deps.ReportUseCase)
 
 	protected.GET("/experiments/:id/report", reportHdl.GetExperimentReport)
+
+	decideHdl := handlers.NewDecideHandler(app.Deps.DecideUseCase)
+	eventsHdl := handlers.NewEventHandler(app.Deps.EventUseCase)
+
+	apiv1.POST("/decide", decideHdl.Decide)
+	apiv1.POST("/track", eventsHdl.BatchTrack)
 }

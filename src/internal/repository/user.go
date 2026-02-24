@@ -31,12 +31,13 @@ type SQLCUserRepository struct {
 
 func (r SQLCUserRepository) Create(ctx context.Context, user *models.User) (*models.User, error) {
 	row, err := r.db.CreateUser(ctx, dbgen.CreateUserParams{
-		Email:         user.Email,
-		Username:      user.Username,
-		PasswordHash:  user.PasswordHash,
-		Role:          dbgen.UserRole(user.Role),
-		MinApprovals:  database.ToPgInt(user.MinApprovals),
-		ApproverGroup: database.ToPgUUID(user.ApproverGroup),
+		Email:          user.Email,
+		Username:       user.Username,
+		PasswordHash:   user.PasswordHash,
+		Role:           dbgen.UserRole(user.Role),
+		MinApprovals:   database.ToPgInt(user.MinApprovals),
+		ApproverGroup:  database.ToPgUUID(user.ApproverGroup),
+		TelegramChatID: database.ToPgText(user.TelegramChatID),
 	})
 	if err != nil {
 		return nil, err
@@ -94,9 +95,10 @@ func (r SQLCUserRepository) ValidateApproversExistenceAndRole(ctx context.Contex
 
 func (r SQLCUserRepository) Update(ctx context.Context, user *models.User) (*models.User, error) {
 	row, err := r.db.UpdateUser(ctx, dbgen.UpdateUserParams{
-		ID:           user.ID,
-		Username:     user.Username,
-		PasswordHash: user.PasswordHash,
+		ID:             user.ID,
+		Username:       user.Username,
+		PasswordHash:   user.PasswordHash,
+		TelegramChatID: database.ToPgText(user.TelegramChatID),
 	})
 	if err != nil {
 		return nil, err
@@ -107,13 +109,14 @@ func (r SQLCUserRepository) Update(ctx context.Context, user *models.User) (*mod
 
 func (r SQLCUserRepository) AdminUpdate(ctx context.Context, user *models.User) (*models.User, error) {
 	row, err := r.db.AdminUpdateUser(ctx, dbgen.AdminUpdateUserParams{
-		ID:            user.ID,
-		Email:         user.Email,
-		Username:      user.Username,
-		PasswordHash:  user.PasswordHash,
-		Role:          dbgen.UserRole(user.Role),
-		MinApprovals:  database.ToPgInt(user.MinApprovals),
-		ApproverGroup: database.ToPgUUID(user.ApproverGroup),
+		ID:             user.ID,
+		Email:          user.Email,
+		Username:       user.Username,
+		PasswordHash:   user.PasswordHash,
+		Role:           dbgen.UserRole(user.Role),
+		MinApprovals:   database.ToPgInt(user.MinApprovals),
+		ApproverGroup:  database.ToPgUUID(user.ApproverGroup),
+		TelegramChatID: database.ToPgText(user.TelegramChatID),
 	})
 	if err != nil {
 		return nil, err
@@ -128,14 +131,15 @@ func (r SQLCUserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error 
 
 func userRowToDomain(row dbgen.User) *models.User {
 	return &models.User{
-		ID:            row.ID,
-		Email:         row.Email,
-		Username:      row.Username,
-		PasswordHash:  row.PasswordHash,
-		Role:          models.UserRole(row.Role),
-		MinApprovals:  database.FromPgInt(row.MinApprovals),
-		ApproverGroup: database.FromPgUUID(row.ApproverGroup),
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
+		ID:             row.ID,
+		Email:          row.Email,
+		Username:       row.Username,
+		PasswordHash:   row.PasswordHash,
+		Role:           models.UserRole(row.Role),
+		MinApprovals:   database.FromPgInt(row.MinApprovals),
+		ApproverGroup:  database.FromPgUUID(row.ApproverGroup),
+		TelegramChatID: database.FromPgText(row.TelegramChatID),
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
 	}
 }

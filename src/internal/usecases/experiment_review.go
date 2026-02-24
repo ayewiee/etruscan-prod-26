@@ -38,7 +38,7 @@ func (uc *ExperimentUseCase) SendOnReview(
 		return err
 	}
 
-	return uc.updateStatus(ctx, &models.ExperimentStatusChange{
+	return uc.updateStatus(ctx, dbExperiment, &models.ExperimentStatusChange{
 		ExperimentID: id,
 		ActorID:      &actor.ID,
 		From:         &dbExperiment.Status,
@@ -152,7 +152,7 @@ func (uc *ExperimentUseCase) approveExperiment(
 
 		systemMsg := fmt.Sprintf("Owner's minimal approval threshold reached (%d)", minApprovals)
 
-		return uc.updateStatus(ctx, &models.ExperimentStatusChange{
+		return uc.updateStatus(ctx, exp, &models.ExperimentStatusChange{
 			ExperimentID: exp.ID,
 			ActorID:      nil, // system update
 			From:         &exp.Status,
@@ -216,7 +216,7 @@ func (uc *ExperimentUseCase) requestChangesForExperiment(
 
 	systemMsg := "Approver requested changes"
 
-	return uc.updateStatus(ctx, &models.ExperimentStatusChange{
+	return uc.updateStatus(ctx, exp, &models.ExperimentStatusChange{
 		ExperimentID: exp.ID,
 		ActorID:      nil, // system update
 		From:         &exp.Status,
@@ -224,7 +224,6 @@ func (uc *ExperimentUseCase) requestChangesForExperiment(
 		Comment:      &systemMsg,
 	})
 
-	// TODO: notify about this
 }
 
 func (uc *ExperimentUseCase) declineExperiment(
@@ -251,7 +250,7 @@ func (uc *ExperimentUseCase) declineExperiment(
 
 	systemMsg := "Approver declined the experiment"
 
-	return uc.updateStatus(ctx, &models.ExperimentStatusChange{
+	return uc.updateStatus(ctx, exp, &models.ExperimentStatusChange{
 		ExperimentID: exp.ID,
 		ActorID:      nil, // system update
 		From:         &exp.Status,

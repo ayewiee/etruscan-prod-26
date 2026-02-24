@@ -53,7 +53,7 @@ func (uc *ExperimentUseCase) Launch(ctx context.Context, actor models.UserAuthDa
 		)
 	}
 
-	err = uc.updateStatus(ctx, &models.ExperimentStatusChange{
+	err = uc.updateStatus(ctx, dbExperiment, &models.ExperimentStatusChange{
 		ExperimentID: dbExperiment.ID,
 		ActorID:      &actor.ID,
 		From:         &dbExperiment.Status,
@@ -63,6 +63,15 @@ func (uc *ExperimentUseCase) Launch(ctx context.Context, actor models.UserAuthDa
 	if err != nil {
 		return err
 	}
+
+	NotifyExperimentStatusChangedUser(
+		ctx,
+		uc.notifications,
+		dbExperiment,
+		&dbExperiment.Status,
+		models.ExperimentStatusLaunched,
+		nil,
+	)
 
 	// cache launched experiment
 	_ = uc.runningExpCache.Set(ctx, flag.Key, dbExperiment)
@@ -95,7 +104,7 @@ func (uc *ExperimentUseCase) Pause(ctx context.Context, actor models.UserAuthDat
 		return err
 	}
 
-	err = uc.updateStatus(ctx, &models.ExperimentStatusChange{
+	err = uc.updateStatus(ctx, dbExperiment, &models.ExperimentStatusChange{
 		ExperimentID: dbExperiment.ID,
 		ActorID:      &actor.ID,
 		From:         &dbExperiment.Status,
@@ -147,6 +156,15 @@ func (uc *ExperimentUseCase) Finish(ctx context.Context, actor models.UserAuthDa
 	if err != nil {
 		return nil, err
 	}
+
+	NotifyExperimentStatusChangedUser(
+		ctx,
+		uc.notifications,
+		exp,
+		&dbExperiment.Status,
+		models.ExperimentStatusFinished,
+		&outcome,
+	)
 
 	return exp, nil
 }

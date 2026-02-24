@@ -10,15 +10,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type EventsHandler struct {
+type EventHandler struct {
 	usecase *usecases.EventUseCase
 }
 
-func NewEventsHandler(usecase *usecases.EventUseCase) *EventsHandler {
-	return &EventsHandler{usecase: usecase}
+func NewEventHandler(usecase *usecases.EventUseCase) *EventHandler {
+	return &EventHandler{usecase: usecase}
 }
 
-func (h *EventsHandler) BatchTrack(c echo.Context) error {
+func (h *EventHandler) BatchTrack(c echo.Context) error {
 	var req dto.BatchEventsRequest
 	if err := c.Bind(&req); err != nil {
 		return models.ErrInvalidJSON

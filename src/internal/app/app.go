@@ -5,11 +5,13 @@ import (
 	"etruscan/internal/app/logger"
 	"etruscan/internal/database"
 	dbgen "etruscan/internal/database/generated"
+	"etruscan/internal/domain/models"
 	"etruscan/internal/infrastructure/cache"
 	"etruscan/internal/provider"
 	"etruscan/internal/repository"
 	cacherepo "etruscan/internal/repository/cache"
 	"etruscan/internal/usecases"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,6 +62,34 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 
 	metricComputer := usecases.NewMetricComputer(decisionRepo, eventRepo, eventTypeRepo, metricRepo)
 
+	notificationSettingsRepo := repository.NewSQLCNotificationSettingsRepository(queries)
+
+	var telegramChannel models.NotificationChannel
+	var emailChannel models.NotificationChannel
+
+	if cfg.NotificationsEnabled {
+		if cfg.NotifyTelegramEnabled && cfg.NotifyTelegramBotToken != "" {
+			telegramChannel = usecases.NewTelegramChannel(
+				cfg.NotifyTelegramBotToken,
+				log,
+				&http.Client{Timeout: 5 * time.Second},
+			)
+		}
+		if cfg.NotifyEmailEnabled {
+			emailChannel = usecases.NewEmailChannel(cfg.NotifyEmailFrom, log)
+		}
+	}
+
+	notificationRouter := usecases.NewNotificationRouter(
+		notificationSettingsRepo,
+		userRepo,
+		telegramChannel,
+		emailChannel,
+		log,
+		time.Duration(cfg.NotifyMinIntervalSecondsHigh)*time.Second,
+		time.Duration(cfg.NotifyMinIntervalSecondsLow)*time.Second,
+	)
+
 	deps := Dependencies{
 		AuthUseCase:          usecases.NewAuthUseCase(userRepo, passwordHasher, jwtProvider),
 		UserUseCase:          usecases.NewUserUseCase(userRepo, passwordHasher),
@@ -74,6 +104,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 			guardrailRepo,
 			runningExpCache,
 			cfg.DefaultMinApprovals,
+			notificationRouter,
 		),
 		DecideUseCase: usecases.NewDecideUseCase(
 			runningExpCache,
@@ -92,6 +123,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 			metricRepo,
 			metricComputer,
 		),
+		NotificationSettingsUseCase: usecases.NewNotificationSettingsUseCase(notificationSettingsRepo),
 	}
 
 	guardrailRunner := usecases.NewGuardrailRunner(
@@ -99,6 +131,7 @@ func NewApiApp(ctx context.Context, cfg Config) (*App, error) {
 		guardrailRepo,
 		metricRepo,
 		metricComputer,
+		notificationRouter,
 		log,
 		cfg.GuardrailCheckIntervalMinutes,
 	)

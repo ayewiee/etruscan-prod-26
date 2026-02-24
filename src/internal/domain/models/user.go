@@ -32,15 +32,16 @@ func (r UserRole) CanApprove() bool {
 }
 
 type User struct {
-	ID            uuid.UUID
-	Email         string
-	Username      string
-	PasswordHash  string
-	Role          UserRole
-	MinApprovals  *int
-	ApproverGroup *uuid.UUID
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID             uuid.UUID
+	Email          string
+	Username       string
+	PasswordHash   string
+	Role           UserRole
+	MinApprovals   *int
+	ApproverGroup  *uuid.UUID
+	TelegramChatID *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type UserAuthData struct {

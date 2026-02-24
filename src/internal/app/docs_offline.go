@@ -10,21 +10,22 @@ import (
 )
 
 // offlineDocsHTML returns a self-contained HTML page that renders the OpenAPI spec
-// with no external scripts or CDN, so /docs works without internet.
 func offlineDocsHTML(specRoot fs.FS) ([]byte, error) {
 	data, err := fs.ReadFile(specRoot, "openapi.yaml")
 	if err != nil {
 		return nil, err
 	}
+
 	var specMap map[string]interface{}
 	if err := yaml.Unmarshal(data, &specMap); err != nil {
 		return nil, err
 	}
+
 	specJSON, err := json.Marshal(specMap)
 	if err != nil {
 		return nil, err
 	}
-	// Safe for embedding in HTML: escape so </script> in spec doesn't break the page
+
 	specEscaped := html.EscapeString(string(specJSON))
 	const tpl = `<!DOCTYPE html>
 <html lang="en">

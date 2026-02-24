@@ -23,6 +23,7 @@ type ExperimentUseCase struct {
 	guardrailRepo       repository.GuardrailRepository
 	runningExpCache     *cache.RunningExperimentCache
 	defaultMinApprovals int
+	notifications       *NotificationRouter
 }
 
 func NewExperimentUseCase(
@@ -34,6 +35,7 @@ func NewExperimentUseCase(
 	guardrailRepo repository.GuardrailRepository,
 	runningExpCache *cache.RunningExperimentCache,
 	defaultMinApprovals int,
+	notifications *NotificationRouter,
 ) *ExperimentUseCase {
 	return &ExperimentUseCase{
 		repo:                repo,
@@ -44,6 +46,7 @@ func NewExperimentUseCase(
 		guardrailRepo:       guardrailRepo,
 		runningExpCache:     runningExpCache,
 		defaultMinApprovals: defaultMinApprovals,
+		notifications:       notifications,
 	}
 }
 
@@ -112,10 +115,11 @@ func validateVariants(flag *models.Flag, variants []*models.Variant) error {
 	return nil
 }
 
-// updateStatus well, updates status and logs it.
+// updateStatus well, updates status, logs it and notifies about it.
 // status transition is not being validated!!!
 func (uc *ExperimentUseCase) updateStatus(
 	ctx context.Context,
+	experiment *models.Experiment,
 	statusChange *models.ExperimentStatusChange,
 ) (err error) {
 	err = uc.repo.UpdateStatus(ctx, statusChange.ExperimentID, statusChange.To)
@@ -123,5 +127,26 @@ func (uc *ExperimentUseCase) updateStatus(
 		return
 	}
 	err = uc.repo.LogExperimentStatusChange(ctx, statusChange)
+
+	if statusChange.ActorID != nil { // user updated status
+		NotifyExperimentStatusChangedUser(
+			ctx,
+			uc.notifications,
+			experiment,
+			statusChange.From,
+			statusChange.To,
+			nil,
+		)
+	} else { // system status update
+		NotifyExperimentStatusChangedSystem(
+			ctx,
+			uc.notifications,
+			experiment,
+			statusChange.From,
+			statusChange.To,
+			nil,
+		)
+	}
+
 	return
 }
