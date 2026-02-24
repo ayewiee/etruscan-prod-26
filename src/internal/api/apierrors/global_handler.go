@@ -37,12 +37,18 @@ func GlobalErrorHandler(log *zap.Logger) echo.HTTPErrorHandler {
 			message = fmt.Sprint(echoHttpErr.Message)
 		}
 
-		var apiErr *models.ApiError
+		baseErr := err
 		if isHTTPError && echoHttpErr.Internal != nil {
-			// unwrap original error, in case it was wrapped by echo
-			errors.As(echoHttpErr.Internal, &apiErr)
-		} else {
-			errors.As(err, &apiErr)
+			baseErr = echoHttpErr.Internal
+		}
+
+		var apiErr *models.ApiError
+		// try to unwrap API errors first
+		errors.As(baseErr, &apiErr)
+
+		// if it's not already an API error, see if it's a DB constraint error
+		if apiErr == nil {
+			apiErr = dbErrorToApiError(baseErr)
 		}
 
 		if apiErr != nil {

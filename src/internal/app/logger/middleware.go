@@ -20,7 +20,7 @@ func ZapLoggerMiddleware(log *zap.Logger) echo.MiddlewareFunc {
 				zap.String("request_id", c.Response().Header().Get(echo.HeaderXRequestID)),
 				zap.String("method", c.Request().Method),
 				zap.String("uri", c.Request().RequestURI),
-				zap.Int("status", c.Response().Status), // FINAL status! (before it could show 200 on 500)
+				zap.Int("status", c.Response().Status),
 				zap.Duration("latency", latency),
 				zap.String("remote_ip", c.RealIP()),
 			}
