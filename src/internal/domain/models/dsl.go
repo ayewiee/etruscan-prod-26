@@ -15,7 +15,7 @@ type DSLUserProps struct {
 }
 
 type DSLError struct {
-	Code     string
+	Code     ErrorCode
 	Message  string
 	Position *int
 	Near     *string

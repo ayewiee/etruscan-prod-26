@@ -6,6 +6,7 @@ import (
 	"errors"
 	"etruscan/internal/domain/bucketing"
 	"etruscan/internal/domain/models"
+	"etruscan/internal/dsl"
 	"etruscan/internal/repository"
 	"etruscan/internal/repository/cache"
 
@@ -121,6 +122,33 @@ func (uc *DecideUseCase) Decide(ctx context.Context, params DecideParams) (*mode
 			zap.Any("value", flag.DefaultValue),
 		)
 		return uc.returnDefault(ctx, flag, params)
+	}
+
+	// if there's a targeting rule, evaluate it against the request context.
+	if exp.TargetingRule != nil && *exp.TargetingRule != "" {
+		matches, validation, evalErr := dsl.Evaluate(*exp.TargetingRule, params.Context)
+		if evalErr != nil {
+			uc.logger.Error("failed to evaluate targeting rule, returned defaultValue", zap.Error(evalErr))
+			return uc.returnDefault(ctx, flag, params)
+		}
+		if validation != nil && !validation.IsValid {
+			uc.logger.Error(
+				"invalid targeting rule, returned defaultValue",
+				zap.String("targetingRule", *exp.TargetingRule),
+				zap.Any("errors", validation.Errors),
+			)
+			return uc.returnDefault(ctx, flag, params)
+		}
+		if !matches {
+			uc.logger.Debug(
+				"user did not pass targeting rule — got default value",
+				zap.String("userId", params.UserID),
+				zap.Any("context", params.Context),
+				zap.String("targetingRule", *exp.TargetingRule),
+				zap.Any("value", flag.DefaultValue),
+			)
+			return uc.returnDefault(ctx, flag, params)
+		}
 	}
 
 	participationBucket, err := bucketing.HashAndBucket(params.UserID, flag.Key, exp.ID, nil)

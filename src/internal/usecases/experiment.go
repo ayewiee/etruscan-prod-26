@@ -7,6 +7,7 @@ import (
 	"etruscan/internal/api/apierrors"
 	"etruscan/internal/domain"
 	"etruscan/internal/domain/models"
+	"etruscan/internal/dsl"
 	"etruscan/internal/repository"
 	"etruscan/internal/repository/cache"
 	"fmt"
@@ -58,6 +59,22 @@ func (uc *ExperimentUseCase) validateExperiment(ctx context.Context, experiment 
 			return models.NewErrNotFound("Flag not found", echo.Map{"flagId": experiment.FlagID}, err)
 		}
 		return err
+	}
+
+	if experiment.TargetingRule != nil {
+		_, validation, err := dsl.Evaluate(*experiment.TargetingRule, nil)
+		if err != nil {
+			return err
+		}
+		if !validation.IsValid {
+			return apierrors.DumbValidationError(
+				"targetingRule",
+				*experiment.TargetingRule,
+				"Invalid DSL expression",
+				nil,
+			)
+		}
+		experiment.TargetingRule = validation.NormalizedExpression
 	}
 
 	err = validateVariants(flag, experiment.Variants)
